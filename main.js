@@ -51,6 +51,7 @@ const logView = document.getElementById("logView");
 const logSummary = document.getElementById("logSummary");
 const focusLogList = document.getElementById("focusLogList");
 const logFilters = document.getElementById("logFilters");
+const weeklyStatsList = document.getElementById("weeklyStatsList");
 
 let selectedMinutes = 0;
 let selectedActivityName = "";
@@ -148,6 +149,7 @@ async function logFocusSession() {
 async function loadFocusLogs(user) {
   focusLogList.innerHTML = "<li>Loading...</li>";
   logSummary.textContent = "";
+  weeklyStatsList.innerHTML = "";
 
   try {
     const q = query(
@@ -164,9 +166,6 @@ async function loadFocusLogs(user) {
       return;
     }
 
-    focusLogList.innerHTML = "";
-
-    let totalMinutes = 0;
     const now = new Date();
     const logs = [];
 
@@ -192,45 +191,105 @@ async function loadFocusLogs(user) {
         include = true;
       }
 
-      if (include) {
-        logs.push({ ...data, createdAt });
-        totalMinutes += data.minutes || 0;
-      }
+      if (include) logs.push({ ...data, createdAt });
     });
 
-    if (logs.length === 0) {
-      focusLogList.innerHTML = "<li>Tiada log dalam julat ini.</li>";
-      logSummary.textContent = "Tiada data untuk julat dipilih.";
-      return;
-    }
-
-    logs.forEach(log => {
-      const timeStr = log.createdAt.toLocaleString("ms-MY", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-
-      const li = document.createElement("li");
-      li.textContent = `${timeStr} — ${log.activityName} (${log.minutes} minit)`;
-      focusLogList.appendChild(li);
-    });
-
-    const label = {
-      today: "Hari Ini",
-      "7": "7 Hari",
-      "30": "30 Hari",
-      all: "Semua"
-    };
-
-    logSummary.textContent =
-      `${label[currentLogRange]}: ${totalMinutes} minit fokus direkodkan.`;
+    renderLogList(logs);
+    renderSummary(logs);
+    renderWeeklyStats(logs);
 
   } catch (err) {
     console.error("Error load logs:", err);
     focusLogList.innerHTML = "<li>Gagal load log fokus.</li>";
   }
+}
+
+function renderLogList(logs) {
+  focusLogList.innerHTML = "";
+
+  if (logs.length === 0) {
+    focusLogList.innerHTML = "<li>Tiada log dalam julat ini.</li>";
+    return;
+  }
+
+  logs.forEach(log => {
+    const timeStr = log.createdAt.toLocaleString("ms-MY", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    const li = document.createElement("li");
+    li.textContent = `${timeStr} — ${log.activityName} (${log.minutes} minit)`;
+    focusLogList.appendChild(li);
+  });
+}
+
+function renderSummary(logs) {
+  const total = logs.reduce((sum, l) => sum + (l.minutes || 0), 0);
+
+  const label = {
+    today: "Hari Ini",
+    "7": "7 Hari",
+    "30": "30 Hari",
+    all: "Semua"
+  };
+
+  logSummary.textContent =
+    `${label[currentLogRange]}: ${total} minit fokus direkodkan.`;
+}
+
+function renderWeeklyStats(logs) {
+  weeklyStatsList.innerHTML = "";
+
+  // Filter hanya untuk 7 hari
+  const now = new Date();
+  const weekLogs = logs.filter(l => {
+    const diff = (now - l.createdAt) / (1000 * 60 * 60 * 24);
+    return diff <= 7;
+  });
+
+  if (weekLogs.length === 0) {
+    weeklyStatsList.innerHTML = "<li>Tiada data minggu ini.</li>";
+    return;
+  }
+
+  // Total minit minggu ini
+  const totalWeek = weekLogs.reduce((sum, l) => sum + (l.minutes || 0), 0);
+
+  // Purata harian
+  const avg = Math.round(totalWeek / 7);
+
+  // Aktiviti popular
+  const countMap = {};
+  weekLogs.forEach(l => {
+    countMap[l.activityName] = (countMap[l.activityName] || 0) + 1;
+  });
+
+  const popular = Object.entries(countMap)
+    .sort((a, b) => b[1] - a[1])[0][0];
+
+  // Streak harian
+  let streak = 0;
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(now);
+    day.setDate(now.getDate() - i);
+
+    const hasLog = weekLogs.some(l =>
+      l.createdAt.toDateString() === day.toDateString()
+    );
+
+    if (hasLog) streak++;
+    else break;
+  }
+
+  weeklyStatsList.innerHTML = `
+    <li>Total minggu ini: <strong>${totalWeek} minit</strong></li>
+    <li>Purata harian: <strong>${avg} minit</strong></li>
+    <li>Aktiviti popular: <strong>${popular}</strong></li>
+    <li>Streak harian: <strong>${streak} hari</strong></li>
+  `;
 }
 
 // FILTER BUTTONS
@@ -357,113 +416,3 @@ async function onDeleteActivity(id) {
 
 // LOAD ACTIVITIES
 async function loadUserActivities(user) {
-  userActivities.innerHTML = "<li>Loading...</li>";
-
-  try {
-    const q = query(
-      collection(db, "restActivities"),
-      where("uid", "==", user.uid),
-      orderBy("createdAt", "desc")
-    );
-
-    const snap = await getDocs(q);
-
-    if (snap.empty) {
-      userActivities.innerHTML = "<li>Tiada aktiviti lagi.</li>";
-      return;
-    }
-
-    userActivities.innerHTML = "";
-    snap.forEach(docSnap => {
-      const data = docSnap.data();
-      const li = document.createElement("li");
-
-      const title = document.createElement("span");
-      title.textContent = `${data.name} — ${data.minutes} minit`;
-      title.style.cursor = "pointer";
-      title.onclick = () =>
-        selectActivity({
-          id: docSnap.id,
-          name: data.name,
-          minutes: data.minutes,
-          source: "custom"
-        });
-
-      const editBtn = document.createElement("button");
-      editBtn.textContent = "Edit";
-      editBtn.onclick = () => onEditActivity(docSnap.id, data);
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "Delete";
-      deleteBtn.style.background = "#ef4444";
-      deleteBtn.onclick = () => onDeleteActivity(docSnap.id);
-
-      li.appendChild(title);
-      li.appendChild(editBtn);
-      li.appendChild(deleteBtn);
-
-      userActivities.appendChild(li);
-    });
-  } catch (err) {
-    console.error("Error load activities:", err);
-  }
-}
-
-// AUTH STATE
-onAuthStateChanged(auth, (user) => {
-  currentUser = user;
-
-  if (user) {
-    userInfo.textContent = `Logged in as: ${user.email}`;
-    authSection.style.display = "none";
-    appSection.style.display = "block";
-
-    renderPresets();
-    loadUserActivities(user);
-    loadUserSound(user);
-    showPlanner();
-  } else {
-    userInfo.textContent = "Not logged in";
-    authSection.style.display = "block";
-    appSection.style.display = "none";
-  }
-});
-
-// SIGNUP
-signupForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  try {
-    await createUserWithEmailAndPassword(
-      auth,
-      signupForm.signupEmail.value,
-      signupForm.signupPassword.value
-    );
-    signupForm.reset();
-  } catch (err) {
-    alert(err.message);
-  }
-});
-
-// LOGIN
-loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  try {
-    await signInWithEmailAndPassword(
-      auth,
-      loginForm.loginEmail.value,
-      loginForm.loginPassword.value
-    );
-    loginForm.reset();
-  } catch (err) {
-    alert(err.message);
-  }
-});
-
-// LOGOUT
-logoutBtn.addEventListener("click", async () => {
-  await signOut(auth);
-});
-
-// START TIMER
-startTimerBtn.addEventListener("click", startTimer);
-
