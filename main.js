@@ -786,3 +786,195 @@ function listenToFocusLog() {
     updateWeeklyAnalytics(logs);
   });
 }
+
+// =========================
+// PART 7 — SOUND SETTINGS (SAVE + LOAD + PLAY)
+// =========================
+
+// ===== SOUND FILES =====
+const soundFiles = {
+  beep: new Audio("sounds/beep.mp3"),
+  gong: new Audio("sounds/gong.mp3"),
+  nature: new Audio("sounds/nature.mp3"),
+};
+
+// ===== PLAY SOUND =====
+function playSelectedSound() {
+  if (!currentUser) return;
+
+  const selected = localStorage.getItem(`sound_${currentUser.uid}`) || "beep";
+
+  const audio = soundFiles[selected];
+  if (audio) {
+    audio.currentTime = 0;
+    audio.play();
+  }
+}
+
+// ===== SAVE SOUND PREFERENCE =====
+if (saveSoundBtn) {
+  saveSoundBtn.addEventListener("click", async () => {
+    if (!currentUser) return;
+
+    const selected = soundSelect.value;
+
+    try {
+      // Simpan ke localStorage (instant)
+      localStorage.setItem(`sound_${currentUser.uid}`, selected);
+
+      // Simpan ke Firestore (cloud sync)
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        preferredSound: selected,
+      });
+
+      alert("Pilihan bunyi disimpan!");
+    } catch (error) {
+      console.error("Gagal simpan bunyi:", error);
+      alert("Tak berjaya simpan pilihan bunyi.");
+    }
+  });
+}
+
+// ===== LOAD SOUND PREFERENCE =====
+async function loadUserSoundPreference() {
+  if (!currentUser) return;
+
+  try {
+    const userRef = doc(db, "users", currentUser.uid);
+    const snap = await getDoc(userRef);
+
+    let selected = "beep";
+
+    if (snap.exists() && snap.data().preferredSound) {
+      selected = snap.data().preferredSound;
+    }
+
+    // Simpan ke localStorage
+    localStorage.setItem(`sound_${currentUser.uid}`, selected);
+
+    // Update UI dropdown
+    soundSelect.value = selected;
+
+  } catch (error) {
+    console.error("Gagal load bunyi:", error);
+  }
+}
+
+// ===== PLAY SOUND WHEN TIMER ENDS =====
+// Modify handleTimerComplete to include sound
+async function handleTimerComplete() {
+  if (!currentUser || !currentActivity) return;
+
+  // 1. Play sound
+  playSelectedSound();
+
+  // 2. Log to Firestore
+  try {
+    await addDoc(
+      collection(db, "users", currentUser.uid, "focusLog"),
+      {
+        activityName: currentActivity.name,
+        minutes: currentActivity.minutes,
+        createdAt: serverTimestamp(),
+      }
+    );
+  } catch (error) {
+    console.error("Gagal log fokus:", error);
+  }
+
+  alert(`Sesi "${currentActivity.name}" selesai!`);
+
+  // 3. Auto-tick (if not preset)
+  if (currentActivity.id) {
+    const activityRef = doc(
+      db,
+      "users",
+      currentUser.uid,
+      "activities",
+      currentActivity.id
+    );
+
+    try {
+      await updateDoc(activityRef, {
+        completedToday: true,
+        lastCompletedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Gagal auto tick:", error);
+    }
+  }
+
+  // 4. Reset timer
+  remainingSeconds = currentActivity.minutes * 60;
+  updateTimerDisplay();
+}
+
+// =========================
+// PART 8 — AUTO RESET TICK SETIAP HARI
+// =========================
+
+// Check and reset tick if needed
+async function autoResetDailyTicks() {
+  if (!currentUser) return;
+
+  const activitiesRef = collection(db, "users", currentUser.uid, "activities");
+
+  onSnapshot(activitiesRef, async (snapshot) => {
+    const today = new Date();
+    const todayDate = today.toDateString(); // contoh: "Fri Nov 28 2025"
+
+    snapshot.forEach(async (docSnap) => {
+      const data = docSnap.data();
+
+      // Jika aktiviti belum pernah ditick → skip
+      if (!data.lastCompletedAt) return;
+
+      const last = data.lastCompletedAt.toDate();
+      const lastDate = last.toDateString();
+
+      // Jika last tick bukan hari ini → reset
+      if (lastDate !== todayDate && data.completedToday === true) {
+        try {
+          await updateDoc(
+            doc(db, "users", currentUser.uid, "activities", docSnap.id),
+            {
+              completedToday: false,
+            }
+          );
+        } catch (error) {
+          console.error("Gagal auto reset tick:", error);
+        }
+      }
+    });
+  });
+}
+
+// Integrate with auth state
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+
+    userInfo.textContent = `Logged in sebagai: ${user.email}`;
+    authSection.style.display = "none";
+    appSection.style.display = "block";
+
+    // Load data
+    listenToUserActivities();
+    listenToFocusLog();
+    loadUserSoundPreference();
+
+    // ✅ Auto reset tick setiap hari
+    autoResetDailyTicks();
+
+  } else {
+    currentUser = null;
+
+    userInfo.textContent = "Sila login atau signup.";
+    authSection.style.display = "block";
+    appSection.style.display = "none";
+
+    userActivitiesList.innerHTML = "";
+    focusLogList.innerHTML = "";
+    logSummary.textContent = "";
+  }
+});
