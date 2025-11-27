@@ -52,6 +52,7 @@ const logSummary = document.getElementById("logSummary");
 const focusLogList = document.getElementById("focusLogList");
 const logFilters = document.getElementById("logFilters");
 const weeklyStatsList = document.getElementById("weeklyStatsList");
+const weeklyChartCanvas = document.getElementById("weeklyChart");
 
 let selectedMinutes = 0;
 let selectedActivityName = "";
@@ -60,6 +61,7 @@ let timerInterval = null;
 let currentUser = null;
 let audio = null;
 let currentLogRange = "today";
+let weeklyChart = null;
 
 // PRESETS
 const presets = [
@@ -145,6 +147,7 @@ async function logFocusSession() {
     console.error("Error log focus:", err);
   }
 }
+
 async function loadFocusLogs(user) {
   focusLogList.innerHTML = "<li>Loading...</li>";
   logSummary.textContent = "";
@@ -162,6 +165,7 @@ async function loadFocusLogs(user) {
     if (snap.empty) {
       focusLogList.innerHTML = "<li>Tiada log fokus lagi.</li>";
       logSummary.textContent = "Belum ada sesi fokus direkod.";
+      renderWeeklyChart([]);
       return;
     }
 
@@ -196,6 +200,7 @@ async function loadFocusLogs(user) {
     renderLogList(logs);
     renderSummary(logs);
     renderWeeklyStats(logs);
+    renderWeeklyChart(logs);
 
   } catch (err) {
     console.error("Error load logs:", err);
@@ -284,6 +289,60 @@ function renderWeeklyStats(logs) {
     <li>Streak harian: <strong>${streak} hari</strong></li>
   `;
 }
+
+function renderWeeklyChart(logs) {
+  const now = new Date();
+  const dailyTotals = {};
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const key = d.toLocaleDateString("ms-MY", { day: "2-digit", month: "short" });
+    dailyTotals[key] = 0;
+  }
+
+  logs.forEach(log => {
+    const key = log.createdAt.toLocaleDateString("ms-MY", { day: "2-digit", month: "short" });
+    if (dailyTotals[key] !== undefined) {
+      dailyTotals[key] += log.minutes || 0;
+    }
+  });
+
+  const labels = Object.keys(dailyTotals);
+  const data = Object.values(dailyTotals);
+
+  if (weeklyChart) weeklyChart.destroy();
+
+  weeklyChart = new Chart(weeklyChartCanvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "Minit Fokus",
+        data,
+        backgroundColor: "#3b82f6"
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        title: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 10
+          }
+        }
+      }
+    }
+  });
+}
+
 // FILTER BUTTONS
 logFilters.querySelectorAll("button").forEach((btn) => {
   btn.addEventListener("click", () => {
