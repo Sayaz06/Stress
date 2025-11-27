@@ -1,0 +1,28 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f3f4f6;
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  background: #2563eb;
+  color: white;
+  padding: 1rem;
+}
+
+button {
+  padding: 0.5rem;
+  margin: 0.2rem;
+  border: none;
+  background: #10b981;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#timerDisplay {
+  font-size: 3rem;
+  text-align: center;
+  margin: 1rem 0;
+}
