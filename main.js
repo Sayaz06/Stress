@@ -576,3 +576,27 @@ logoutBtn.addEventListener("click", async () => {
 
 // START TIMER
 startTimerBtn.addEventListener("click", startTimer);
+
+// THEME TOGGLE
+const themeToggle = document.getElementById("themeToggle");
+
+// Load saved theme
+const savedTheme = localStorage.getItem("theme");
+if (savedTheme === "dark") {
+  document.body.classList.add("dark");
+  themeToggle.textContent = "Light Mode";
+}
+
+// Toggle theme on click
+themeToggle.addEventListener("click", () => {
+  const isDark = document.body.classList.toggle("dark");
+
+  if (isDark) {
+    localStorage.setItem("theme", "dark");
+    themeToggle.textContent = "Light Mode";
+  } else {
+    localStorage.setItem("theme", "light");
+    themeToggle.textContent = "Dark Mode";
+  }
+});
+
