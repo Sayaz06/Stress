@@ -11,17 +11,19 @@
 
 <body>
 
+  <!-- ✅ HEADER -->
   <header>
     <h1>Stress — Timing Planner</h1>
     <p id="userInfo">Checking auth...</p>
     <button id="logoutBtn">Logout</button>
   </header>
 
-<div id="offlineBanner">Anda sedang offline — beberapa fungsi mungkin tidak berfungsi.</div>
-  
+  <!-- ✅ OFFLINE BANNER -->
+  <div id="offlineBanner">Anda sedang offline — beberapa fungsi mungkin tidak berfungsi.</div>
+
   <main>
 
-    <!-- AUTH SECTION -->
+    <!-- ✅ AUTH SECTION -->
     <section id="authSection">
       <h2>Signup</h2>
       <form id="signupForm">
@@ -38,15 +40,16 @@
       </form>
     </section>
 
-    <!-- APP SECTION -->
+    <!-- ✅ APP SECTION -->
     <section id="appSection" style="display:none;">
 
+      <!-- ✅ TAB NAVIGATION -->
       <nav>
         <button id="plannerTabBtn" type="button">Planner</button>
         <button id="logTabBtn" type="button">Log Fokus</button>
       </nav>
 
-      <!-- PLANNER VIEW -->
+      <!-- ✅ PLANNER VIEW -->
       <div id="plannerView">
 
         <h2>Preset Aktiviti</h2>
@@ -79,7 +82,7 @@
 
       </div>
 
-      <!-- LOG VIEW -->
+      <!-- ✅ LOG VIEW -->
       <div id="logView" style="display:none;">
         <h2>Log Fokus Anda</h2>
 
@@ -109,11 +112,13 @@
   <!-- ✅ DARK MODE BUTTON -->
   <button id="themeToggle">Dark Mode</button>
 
+  <!-- ✅ SCRIPT IMPORT -->
   <script type="module" src="main.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js");
     }
   </script>
+
 </body>
 </html>
