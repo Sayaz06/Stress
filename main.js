@@ -1,4 +1,3 @@
-// main.js
 import { auth, db } from "./firebase.js";
 import {
   createUserWithEmailAndPassword,
@@ -44,30 +43,30 @@ const selectedActivityLabel = document.getElementById("selectedActivityLabel");
 const soundSelect = document.getElementById("soundSelect");
 const saveSoundBtn = document.getElementById("saveSoundBtn");
 
-// ✅ NEW (Plan D Step 1)
+// PLAN D UI
 const plannerTabBtn = document.getElementById("plannerTabBtn");
 const logTabBtn = document.getElementById("logTabBtn");
 const plannerView = document.getElementById("plannerView");
 const logView = document.getElementById("logView");
 const logSummary = document.getElementById("logSummary");
 const focusLogList = document.getElementById("focusLogList");
+const logFilters = document.getElementById("logFilters");
 
-// STATE
 let selectedMinutes = 0;
 let selectedActivityName = "";
 let selectedActivityId = null;
 let timerInterval = null;
 let currentUser = null;
 let audio = null;
+let currentLogRange = "today";
 
-// PRESET ACTIVITIES
+// PRESETS
 const presets = [
   { name: "Fokus 25 minit", minutes: 25 },
   { name: "Fokus 45 minit", minutes: 45 },
   { name: "Fokus 60 minit", minutes: 60 }
 ];
 
-// RENDER PRESETS
 function renderPresets() {
   presetList.innerHTML = "";
   presets.forEach((p) => {
@@ -83,7 +82,6 @@ function renderPresets() {
   });
 }
 
-// SELECT ACTIVITY
 function selectActivity({ id, name, minutes, source }) {
   selectedMinutes = minutes;
   selectedActivityName = name;
@@ -95,7 +93,6 @@ function selectActivity({ id, name, minutes, source }) {
     `${source === "preset" ? "[Preset] " : ""}${name} — ${minutes} minit`;
 }
 
-// TIMER LOGIC (AUDIO FILE METHOD)
 function startTimer() {
   if (!selectedMinutes || selectedMinutes <= 0) return;
   if (!currentUser) return alert("Sila login dahulu.");
@@ -105,7 +102,6 @@ function startTimer() {
   let totalSeconds = selectedMinutes * 60;
   updateTimerDisplay(totalSeconds);
 
-  // ✅ PLAY AUDIO FILE (SILENT + ALARM)
   const audioFile = `focus${selectedMinutes}min.mp3`;
   audio = new Audio(audioFile);
   audio.volume = 1.0;
@@ -135,7 +131,6 @@ function updateTimerDisplay(totalSeconds) {
     `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-// FIRESTORE: LOG SESSION
 async function logFocusSession() {
   try {
     await addDoc(collection(db, "focusLogs"), {
@@ -147,6 +142,216 @@ async function logFocusSession() {
     });
   } catch (err) {
     console.error("Error log focus:", err);
+  }
+}
+
+async function loadFocusLogs(user) {
+  focusLogList.innerHTML = "<li>Loading...</li>";
+  logSummary.textContent = "";
+
+  try {
+    const q = query(
+      collection(db, "focusLogs"),
+      where("uid", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      focusLogList.innerHTML = "<li>Tiada log fokus lagi.</li>";
+      logSummary.textContent = "Belum ada sesi fokus direkod.";
+      return;
+    }
+
+    focusLogList.innerHTML = "";
+
+    let totalMinutes = 0;
+    const now = new Date();
+    const logs = [];
+
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
+      const createdAt = data.createdAt?.toDate
+        ? data.createdAt.toDate()
+        : null;
+
+      if (!createdAt) return;
+
+      const diffMs = now - createdAt;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+      let include = false;
+      if (currentLogRange === "today") {
+        include = createdAt.toDateString() === now.toDateString();
+      } else if (currentLogRange === "7") {
+        include = diffDays <= 7;
+      } else if (currentLogRange === "30") {
+        include = diffDays <= 30;
+      } else {
+        include = true;
+      }
+
+      if (include) {
+        logs.push({ ...data, createdAt });
+        totalMinutes += data.minutes || 0;
+      }
+    });
+
+    if (logs.length === 0) {
+      focusLogList.innerHTML = "<li>Tiada log dalam julat ini.</li>";
+      logSummary.textContent = "Tiada data untuk julat dipilih.";
+      return;
+    }
+
+    logs.forEach(log => {
+      const timeStr = log.createdAt.toLocaleString("ms-MY", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+
+      const li = document.createElement("li");
+      li.textContent = `${timeStr} — ${log.activityName} (${log.minutes} minit)`;
+      focusLogList.appendChild(li);
+    });
+
+    const label = {
+      today: "Hari Ini",
+      "7": "7 Hari",
+      "30": "30 Hari",
+      all: "Semua"
+    };
+
+    logSummary.textContent =
+      `${label[currentLogRange]}: ${totalMinutes} minit fokus direkodkan.`;
+
+  } catch (err) {
+    console.error("Error load logs:", err);
+    focusLogList.innerHTML = "<li>Gagal load log fokus.</li>";
+  }
+}
+
+// FILTER BUTTONS
+logFilters.querySelectorAll("button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    currentLogRange = btn.dataset.range;
+    if (currentUser) loadFocusLogs(currentUser);
+  });
+});
+
+// TAB SWITCHING
+function showPlanner() {
+  plannerView.style.display = "block";
+  logView.style.display = "none";
+  plannerTabBtn.disabled = true;
+  logTabBtn.disabled = false;
+}
+
+function showLog() {
+  plannerView.style.display = "none";
+  logView.style.display = "block";
+  plannerTabBtn.disabled = false;
+  logTabBtn.disabled = true;
+
+  if (currentUser) loadFocusLogs(currentUser);
+}
+
+plannerTabBtn.addEventListener("click", showPlanner);
+logTabBtn.addEventListener("click", showLog);
+
+// ADD ACTIVITY
+addActivityForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  if (!currentUser) {
+    alert("Sila login dahulu.");
+    return;
+  }
+
+  const name = activityName.value.trim();
+  const minutes = parseInt(activityMinutes.value, 10);
+
+  if (!name || !minutes || minutes <= 0) {
+    alert("Sila masukkan nama dan minit yang sah.");
+    return;
+  }
+
+  try {
+    await addDoc(collection(db, "restActivities"), {
+      uid: currentUser.uid,
+      name,
+      minutes,
+      createdAt: serverTimestamp()
+    });
+
+    activityName.value = "";
+    activityMinutes.value = "";
+
+    await loadUserActivities(currentUser);
+  } catch (err) {
+    console.error("Error tambah aktiviti:", err);
+    alert("Gagal tambah aktiviti.");
+  }
+});
+
+// LOAD SOUND SETTING
+async function loadUserSound(user) {
+  try {
+    const snap = await getDoc(doc(db, "userSettings", user.uid));
+    if (snap.exists()) soundSelect.value = snap.data().sound;
+  } catch (err) {
+    console.error("Error load sound:", err);
+  }
+}
+
+// SAVE SOUND SETTING
+saveSoundBtn.addEventListener("click", async () => {
+  if (!currentUser) return alert("Sila login dahulu.");
+
+  try {
+    await setDoc(doc(db, "userSettings", currentUser.uid), {
+      sound: soundSelect.value
+    });
+    alert("Pilihan bunyi disimpan.");
+  } catch (err) {
+    console.error("Error save sound:", err);
+  }
+});
+
+// EDIT ACTIVITY
+async function onEditActivity(id, data) {
+  const newName = prompt("Nama aktiviti baru:", data.name);
+  if (newName === null) return;
+
+  const newMinutesRaw = prompt("Minit fokus baru:", data.minutes);
+  if (newMinutesRaw === null) return;
+
+  const newMinutes = parseInt(newMinutesRaw, 10);
+  if (!newName.trim() || !newMinutes || newMinutes <= 0)
+    return alert("Input tidak sah.");
+
+  try {
+    await updateDoc(doc(db, "restActivities", id), {
+      name: newName.trim(),
+      minutes: newMinutes
+    });
+    loadUserActivities(currentUser);
+  } catch (err) {
+    console.error("Error update:", err);
+  }
+}
+
+// DELETE ACTIVITY
+async function onDeleteActivity(id) {
+  if (!confirm("Padam aktiviti ini?")) return;
+
+  try {
+    await deleteDoc(doc(db, "restActivities", id));
+    loadUserActivities(currentUser);
+  } catch (err) {
+    console.error("Error delete:", err);
   }
 }
 
@@ -204,185 +409,6 @@ async function loadUserActivities(user) {
   }
 }
 
-// EDIT ACTIVITY
-async function onEditActivity(id, data) {
-  const newName = prompt("Nama aktiviti baru:", data.name);
-  if (newName === null) return;
-
-  const newMinutesRaw = prompt("Minit fokus baru:", data.minutes);
-  if (newMinutesRaw === null) return;
-
-  const newMinutes = parseInt(newMinutesRaw, 10);
-  if (!newName.trim() || !newMinutes || newMinutes <= 0)
-    return alert("Input tidak sah.");
-
-  try {
-    await updateDoc(doc(db, "restActivities", id), {
-      name: newName.trim(),
-      minutes: newMinutes
-    });
-    loadUserActivities(currentUser);
-  } catch (err) {
-    console.error("Error update:", err);
-  }
-}
-
-// DELETE ACTIVITY
-async function onDeleteActivity(id) {
-  if (!confirm("Padam aktiviti ini?")) return;
-
-  try {
-    await deleteDoc(doc(db, "restActivities", id));
-    loadUserActivities(currentUser);
-  } catch (err) {
-    console.error("Error delete:", err);
-  }
-}
-
-// LOAD SOUND SETTING
-async function loadUserSound(user) {
-  try {
-    const snap = await getDoc(doc(db, "userSettings", user.uid));
-    if (snap.exists()) soundSelect.value = snap.data().sound;
-  } catch (err) {
-    console.error("Error load sound:", err);
-  }
-}
-
-// SAVE SOUND SETTING
-saveSoundBtn.addEventListener("click", async () => {
-  if (!currentUser) return alert("Sila login dahulu.");
-
-  try {
-    await setDoc(doc(db, "userSettings", currentUser.uid), {
-      sound: soundSelect.value
-    });
-    alert("Pilihan bunyi disimpan.");
-  } catch (err) {
-    console.error("Error save sound:", err);
-  }
-});
-
-// ✅ LOAD FOCUS LOGS (Plan D Step 1)
-async function loadFocusLogs(user) {
-  focusLogList.innerHTML = "<li>Loading...</li>";
-  logSummary.textContent = "";
-
-  try {
-    const q = query(
-      collection(db, "focusLogs"),
-      where("uid", "==", user.uid),
-      orderBy("createdAt", "desc")
-    );
-
-    const snap = await getDocs(q);
-
-    if (snap.empty) {
-      focusLogList.innerHTML = "<li>Tiada log fokus lagi.</li>";
-      logSummary.textContent = "Belum ada sesi fokus direkod.";
-      return;
-    }
-
-    focusLogList.innerHTML = "";
-
-    let totalMinutesToday = 0;
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = today.getMonth();
-    const d = today.getDate();
-
-    snap.forEach(docSnap => {
-      const data = docSnap.data();
-      const li = document.createElement("li");
-
-      const createdAt = data.createdAt?.toDate
-        ? data.createdAt.toDate()
-        : null;
-
-      if (createdAt &&
-          createdAt.getFullYear() === y &&
-          createdAt.getMonth() === m &&
-          createdAt.getDate() === d) {
-        totalMinutesToday += data.minutes || 0;
-      }
-
-      const timeStr = createdAt
-        ? createdAt.toLocaleString("ms-MY", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit"
-          })
-        : "Tidak diketahui";
-
-      li.textContent = `${timeStr} — ${data.activityName} (${data.minutes} minit)`;
-      focusLogList.appendChild(li);
-    });
-
-    logSummary.textContent =
-      `Hari ini: ${totalMinutesToday} minit fokus direkodkan.`;
-
-  } catch (err) {
-    console.error("Error load logs:", err);
-    focusLogList.innerHTML = "<li>Gagal load log fokus.</li>";
-  }
-}
-
-// ✅ TAB SWITCHING
-function showPlanner() {
-  plannerView.style.display = "block";
-  logView.style.display = "none";
-  plannerTabBtn.disabled = true;
-  logTabBtn.disabled = false;
-}
-
-function showLog() {
-  plannerView.style.display = "none";
-  logView.style.display = "block";
-  plannerTabBtn.disabled = false;
-  logTabBtn.disabled = true;
-
-  if (currentUser) loadFocusLogs(currentUser);
-}
-
-plannerTabBtn.addEventListener("click", showPlanner);
-logTabBtn.addEventListener("click", showLog);
-
-// ✅ ADD ACTIVITY
-addActivityForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  if (!currentUser) {
-    alert("Sila login dahulu.");
-    return;
-  }
-
-  const name = activityName.value.trim();
-  const minutes = parseInt(activityMinutes.value, 10);
-
-  if (!name || !minutes || minutes <= 0) {
-    alert("Sila masukkan nama dan minit yang sah.");
-    return;
-  }
-
-  try {
-    await addDoc(collection(db, "restActivities"), {
-      uid: currentUser.uid,
-      name,
-      minutes,
-      createdAt: serverTimestamp()
-    });
-
-    activityName.value = "";
-    activityMinutes.value = "";
-
-    await loadUserActivities(currentUser);
-  } catch (err) {
-    console.error("Error tambah aktiviti:", err);
-    alert("Gagal tambah aktiviti.");
-  }
-});
-
 // AUTH STATE
 onAuthStateChanged(auth, (user) => {
   currentUser = user;
@@ -395,7 +421,6 @@ onAuthStateChanged(auth, (user) => {
     renderPresets();
     loadUserActivities(user);
     loadUserSound(user);
-
     showPlanner();
   } else {
     userInfo.textContent = "Not logged in";
@@ -441,3 +466,4 @@ logoutBtn.addEventListener("click", async () => {
 
 // START TIMER
 startTimerBtn.addEventListener("click", startTimer);
+
