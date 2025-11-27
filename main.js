@@ -1187,3 +1187,93 @@ async function deleteActivity(activityRef) {
   );
 }
 
+// =========================
+// PART 11 — UX POLISH
+// =========================
+
+// ===== AUTO FOCUS INPUT BILA BUKA PLANNER =====
+function showPlannerView() {
+  plannerView.classList.remove("view-hidden");
+  logView.classList.add("view-hidden");
+
+  plannerTabBtn.disabled = true;
+  logTabBtn.disabled = false;
+
+  // Auto focus input
+  setTimeout(() => {
+    if (activityNameInput) activityNameInput.focus();
+  }, 150);
+}
+
+// ===== SMOOTH SCROLL KE AKTIVITI BARU =====
+async function scrollToNewActivity() {
+  const lastItem = userActivitiesList.lastElementChild;
+  if (!lastItem) return;
+
+  lastItem.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// Integrate with add activity
+if (addActivityForm) {
+  addActivityForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    const name = activityNameInput.value.trim();
+    const minutes = parseInt(activityMinutesInput.value.trim(), 10);
+
+    if (!name || !minutes) return;
+
+    try {
+      await addDoc(
+        collection(db, "users", currentUser.uid, "activities"),
+        {
+          name,
+          minutes,
+          completedToday: false,
+          createdAt: serverTimestamp(),
+        }
+      );
+
+      addActivityForm.reset();
+
+      // Auto scroll
+      setTimeout(scrollToNewActivity, 300);
+
+    } catch (error) {
+      showErrorToast("Tak berjaya tambah aktiviti.");
+    }
+  });
+}
+
+// ===== SMOOTH SCROLL KE TIMER BILA PILIH AKTIVITI =====
+function selectActivity(activity) {
+  currentActivity = activity;
+
+  selectedActivityLabel.textContent =
+    `Aktiviti: ${activity.name} (${activity.minutes} minit)`;
+
+  remainingSeconds = activity.minutes * 60;
+  updateTimerDisplay();
+
+  startTimerBtn.disabled = false;
+
+  // Scroll ke timer
+  timerDisplay.classList.add("timer-highlight");
+  timerDisplay.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  setTimeout(() => timerDisplay.classList.remove("timer-highlight"), 800);
+}
+
+// ===== AUTO SCROLL KE ATAS BILA TUKAR TAB =====
+function showLogView() {
+  logView.classList.remove("view-hidden");
+  plannerView.classList.add("view-hidden");
+
+  plannerTabBtn.disabled = false;
+  logTabBtn.disabled = true;
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+
