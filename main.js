@@ -44,6 +44,14 @@ const selectedActivityLabel = document.getElementById("selectedActivityLabel");
 const soundSelect = document.getElementById("soundSelect");
 const saveSoundBtn = document.getElementById("saveSoundBtn");
 
+// ✅ NEW (Plan D Step 1)
+const plannerTabBtn = document.getElementById("plannerTabBtn");
+const logTabBtn = document.getElementById("logTabBtn");
+const plannerView = document.getElementById("plannerView");
+const logView = document.getElementById("logView");
+const logSummary = document.getElementById("logSummary");
+const focusLogList = document.getElementById("focusLogList");
+
 // STATE
 let selectedMinutes = 0;
 let selectedActivityName = "";
@@ -98,7 +106,7 @@ function startTimer() {
   updateTimerDisplay(totalSeconds);
 
   // ✅ PLAY AUDIO FILE (SILENT + ALARM)
-  const audioFile = `focus${selectedMinutes}min.mp3`; // <-- FILE DI ROOT
+  const audioFile = `focus${selectedMinutes}min.mp3`;
   audio = new Audio(audioFile);
   audio.volume = 1.0;
   audio.play().catch(err => console.warn("Audio blocked:", err));
@@ -255,7 +263,92 @@ saveSoundBtn.addEventListener("click", async () => {
   }
 });
 
-// ✅ ADD ACTIVITY (INI YANG HILANG SEBELUM NI)
+// ✅ LOAD FOCUS LOGS (Plan D Step 1)
+async function loadFocusLogs(user) {
+  focusLogList.innerHTML = "<li>Loading...</li>";
+  logSummary.textContent = "";
+
+  try {
+    const q = query(
+      collection(db, "focusLogs"),
+      where("uid", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      focusLogList.innerHTML = "<li>Tiada log fokus lagi.</li>";
+      logSummary.textContent = "Belum ada sesi fokus direkod.";
+      return;
+    }
+
+    focusLogList.innerHTML = "";
+
+    let totalMinutesToday = 0;
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const d = today.getDate();
+
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
+      const li = document.createElement("li");
+
+      const createdAt = data.createdAt?.toDate
+        ? data.createdAt.toDate()
+        : null;
+
+      if (createdAt &&
+          createdAt.getFullYear() === y &&
+          createdAt.getMonth() === m &&
+          createdAt.getDate() === d) {
+        totalMinutesToday += data.minutes || 0;
+      }
+
+      const timeStr = createdAt
+        ? createdAt.toLocaleString("ms-MY", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit"
+          })
+        : "Tidak diketahui";
+
+      li.textContent = `${timeStr} — ${data.activityName} (${data.minutes} minit)`;
+      focusLogList.appendChild(li);
+    });
+
+    logSummary.textContent =
+      `Hari ini: ${totalMinutesToday} minit fokus direkodkan.`;
+
+  } catch (err) {
+    console.error("Error load logs:", err);
+    focusLogList.innerHTML = "<li>Gagal load log fokus.</li>";
+  }
+}
+
+// ✅ TAB SWITCHING
+function showPlanner() {
+  plannerView.style.display = "block";
+  logView.style.display = "none";
+  plannerTabBtn.disabled = true;
+  logTabBtn.disabled = false;
+}
+
+function showLog() {
+  plannerView.style.display = "none";
+  logView.style.display = "block";
+  plannerTabBtn.disabled = false;
+  logTabBtn.disabled = true;
+
+  if (currentUser) loadFocusLogs(currentUser);
+}
+
+plannerTabBtn.addEventListener("click", showPlanner);
+logTabBtn.addEventListener("click", showLog);
+
+// ✅ ADD ACTIVITY
 addActivityForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -302,6 +395,8 @@ onAuthStateChanged(auth, (user) => {
     renderPresets();
     loadUserActivities(user);
     loadUserSound(user);
+
+    showPlanner();
   } else {
     userInfo.textContent = "Not logged in";
     authSection.style.display = "block";
