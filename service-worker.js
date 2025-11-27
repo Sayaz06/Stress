@@ -2,7 +2,7 @@
 // SERVICE WORKER — Stress PWA
 // ===============================
 
-const CACHE_NAME = "stress-cache-v13";
+const CACHE_NAME = "stress-cache-v14";
 const ASSETS = [
   "/", 
   "/index.html",
