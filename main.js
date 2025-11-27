@@ -1,602 +1,788 @@
-import { auth, db } from "./firebase.js";
+// =========================
+// PART 1 — IMPORTS & INIT
+// =========================
+
+// FIREBASE IMPORTS
 import {
+  getFirestore,
+  collection,
+  addDoc,
+  onSnapshot,
+  updateDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp,
+  query,
+  orderBy,
+  where,
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+import {
+  getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
-import {
-  collection,
-  addDoc,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  serverTimestamp,
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  deleteDoc
-} from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+// INIT FIREBASE
+const db = getFirestore();
+const auth = getAuth();
 
-// UI ELEMENTS
+// GLOBAL STATE
+let currentUser = null;
+let currentActivity = null;   // selected activity for timer
+let timerInterval = null;
+let remainingSeconds = 0;
+
+// =========================
+// DOM ELEMENTS
+// =========================
+
+// Header / Auth / App
 const authSection = document.getElementById("authSection");
 const appSection = document.getElementById("appSection");
 const userInfo = document.getElementById("userInfo");
 const logoutBtn = document.getElementById("logoutBtn");
-
 const signupForm = document.getElementById("signupForm");
 const loginForm = document.getElementById("loginForm");
 
-const presetList = document.getElementById("presetList");
-const addActivityForm = document.getElementById("addActivityForm");
-const activityName = document.getElementById("activityName");
-const activityMinutes = document.getElementById("activityMinutes");
-const userActivities = document.getElementById("userActivities");
-
-const timerDisplay = document.getElementById("timerDisplay");
-const startTimerBtn = document.getElementById("startTimerBtn");
-const selectedActivityLabel = document.getElementById("selectedActivityLabel");
-
-const soundSelect = document.getElementById("soundSelect");
-const saveSoundBtn = document.getElementById("saveSoundBtn");
-
-// PLAN D UI
+// Tabs
 const plannerTabBtn = document.getElementById("plannerTabBtn");
 const logTabBtn = document.getElementById("logTabBtn");
 const plannerView = document.getElementById("plannerView");
 const logView = document.getElementById("logView");
-const logSummary = document.getElementById("logSummary");
+
+// Activities
+const addActivityForm = document.getElementById("addActivityForm");
+const activityNameInput = document.getElementById("activityName");
+const activityMinutesInput = document.getElementById("activityMinutes");
+const userActivitiesList = document.getElementById("userActivities");
+const presetList = document.getElementById("presetList");
+
+// Sound controls (kalau ada dalam HTML)
+const soundSelect = document.getElementById("soundSelect");
+const saveSoundBtn = document.getElementById("saveSoundBtn");
+
+// Timer
+const selectedActivityLabel = document.getElementById("selectedActivityLabel");
+const timerDisplay = document.getElementById("timerDisplay");
+const startTimerBtn = document.getElementById("startTimerBtn");
+
+// Log & analytics
 const focusLogList = document.getElementById("focusLogList");
+const logSummary = document.getElementById("logSummary");
 const logFilters = document.getElementById("logFilters");
 const weeklyStatsList = document.getElementById("weeklyStatsList");
 const weeklyChartCanvas = document.getElementById("weeklyChart");
 
-let selectedMinutes = 0;
-let selectedActivityName = "";
-let selectedActivityId = null;
-let timerInterval = null;
-let currentUser = null;
-let audio = null;
-let currentLogRange = "today";
-let weeklyChart = null;
+// Theme
+const themeToggle = document.getElementById("themeToggle");
 
-// PRESETS
-const presets = [
-  { name: "Fokus 25 minit", minutes: 25 },
-  { name: "Fokus 45 minit", minutes: 45 },
-  { name: "Fokus 60 minit", minutes: 60 }
-];
+// Chart.js instance (global)
+let weeklyChartInstance = null;
 
-function renderPresets() {
-  presetList.innerHTML = "";
-  presets.forEach((p) => {
-    const btn = document.createElement("button");
-    btn.textContent = `${p.name}`;
-    btn.onclick = () => selectActivity({
-      id: null,
-      name: p.name,
-      minutes: p.minutes,
-      source: "preset"
-    });
-    presetList.appendChild(btn);
-  });
-}
+// =========================
+// PART 2 — AUTH + THEME + TABS
+// =========================
 
-function selectActivity({ id, name, minutes, source }) {
-  selectedMinutes = minutes;
-  selectedActivityName = name;
-  selectedActivityId = id;
+// ===== SIGNUP =====
+if (signupForm) {
+  signupForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-  startTimerBtn.disabled = false;
-  timerDisplay.textContent = `${String(minutes).padStart(2, "0")}:00`;
-  selectedActivityLabel.textContent =
-    `${source === "preset" ? "[Preset] " : ""}${name} — ${minutes} minit`;
-}
+    const email = signupForm.signupEmail.value.trim();
+    const password = signupForm.signupPassword.value.trim();
 
-function startTimer() {
-  if (!selectedMinutes || selectedMinutes <= 0) return;
-  if (!currentUser) return alert("Sila login dahulu.");
+    if (!email || !password) return;
 
-  if (timerInterval) clearInterval(timerInterval);
-
-  let totalSeconds = selectedMinutes * 60;
-  updateTimerDisplay(totalSeconds);
-
-  const audioFile = `focus${selectedMinutes}min.mp3`;
-  audio = new Audio(audioFile);
-  audio.volume = 1.0;
-  audio.play().catch(err => console.warn("Audio blocked:", err));
-
-  timerInterval = setInterval(async () => {
-    totalSeconds--;
-
-    if (totalSeconds <= 0) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-      updateTimerDisplay(0);
-
-      alert("Fokus selesai!");
-      await logFocusSession();
-      return;
-    }
-
-    updateTimerDisplay(totalSeconds);
-  }, 1000);
-}
-
-function updateTimerDisplay(totalSeconds) {
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  timerDisplay.textContent =
-    `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
-async function logFocusSession() {
-  try {
-    await addDoc(collection(db, "focusLogs"), {
-      uid: currentUser.uid,
-      activityId: selectedActivityId || null,
-      activityName: selectedActivityName,
-      minutes: selectedMinutes,
-      createdAt: serverTimestamp()
-    });
-  } catch (err) {
-    console.error("Error log focus:", err);
-  }
-}
-
-async function loadFocusLogs(user) {
-  focusLogList.innerHTML = "<li>Loading...</li>";
-  logSummary.textContent = "";
-  weeklyStatsList.innerHTML = "";
-
-  try {
-    const q = query(
-      collection(db, "focusLogs"),
-      where("uid", "==", user.uid),
-      orderBy("createdAt", "desc")
-    );
-
-    const snap = await getDocs(q);
-
-    if (snap.empty) {
-      focusLogList.innerHTML = "<li>Tiada log fokus lagi.</li>";
-      logSummary.textContent = "Belum ada sesi fokus direkod.";
-      renderWeeklyChart([]);
-      return;
-    }
-
-    const now = new Date();
-    const logs = [];
-
-    snap.forEach(docSnap => {
-      const data = docSnap.data();
-      const createdAt = data.createdAt?.toDate
-        ? data.createdAt.toDate()
-        : null;
-
-      if (!createdAt) return;
-
-      const diffMs = now - createdAt;
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-      let include = false;
-      if (currentLogRange === "today") {
-        include = createdAt.toDateString() === now.toDateString();
-      } else if (currentLogRange === "7") {
-        include = diffDays <= 7;
-      } else if (currentLogRange === "30") {
-        include = diffDays <= 30;
-      } else {
-        include = true;
-      }
-
-      if (include) logs.push({ ...data, createdAt });
-    });
-
-    renderLogList(logs);
-    renderSummary(logs);
-    renderWeeklyStats(logs);
-    renderWeeklyChart(logs);
-
-  } catch (err) {
-    console.error("Error load logs:", err);
-    focusLogList.innerHTML = "<li>Gagal load log fokus.</li>";
-  }
-}
-
-function renderLogList(logs) {
-  focusLogList.innerHTML = "";
-
-  if (logs.length === 0) {
-    focusLogList.innerHTML = "<li>Tiada log dalam julat ini.</li>";
-    return;
-  }
-
-  logs.forEach(log => {
-    const timeStr = log.createdAt.toLocaleString("ms-MY", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-
-    const li = document.createElement("li");
-    li.textContent = `${timeStr} — ${log.activityName} (${log.minutes} minit)`;
-    focusLogList.appendChild(li);
-  });
-}
-
-function renderSummary(logs) {
-  const total = logs.reduce((sum, l) => sum + (l.minutes || 0), 0);
-
-  const label = {
-    today: "Hari Ini",
-    "7": "7 Hari",
-    "30": "30 Hari",
-    all: "Semua"
-  };
-
-  logSummary.textContent =
-    `${label[currentLogRange]}: ${total} minit fokus direkodkan.`;
-}
-
-function renderWeeklyStats(logs) {
-  weeklyStatsList.innerHTML = "";
-
-  const now = new Date();
-  const weekLogs = logs.filter(l => {
-    const diff = (now - l.createdAt) / (1000 * 60 * 60 * 24);
-    return diff <= 7;
-  });
-
-  if (weekLogs.length === 0) {
-    weeklyStatsList.innerHTML = "<li>Tiada data minggu ini.</li>";
-    return;
-  }
-
-  const totalWeek = weekLogs.reduce((sum, l) => sum + (l.minutes || 0), 0);
-  const avg = Math.round(totalWeek / 7);
-
-  const countMap = {};
-  weekLogs.forEach(l => {
-    countMap[l.activityName] = (countMap[l.activityName] || 0) + 1;
-  });
-
-  const popular = Object.entries(countMap)
-    .sort((a, b) => b[1] - a[1])[0][0];
-
-  let streak = 0;
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(now);
-    day.setDate(now.getDate() - i);
-
-    const hasLog = weekLogs.some(l =>
-      l.createdAt.toDateString() === day.toDateString()
-    );
-
-    if (hasLog) streak++;
-    else break;
-  }
-
-  weeklyStatsList.innerHTML = `
-    <li>Total minggu ini: <strong>${totalWeek} minit</strong></li>
-    <li>Purata harian: <strong>${avg} minit</strong></li>
-    <li>Aktiviti popular: <strong>${popular}</strong></li>
-    <li>Streak harian: <strong>${streak} hari</strong></li>
-  `;
-}
-
-function renderWeeklyChart(logs) {
-  const now = new Date();
-  const dailyTotals = {};
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    const key = d.toLocaleDateString("ms-MY", { day: "2-digit", month: "short" });
-    dailyTotals[key] = 0;
-  }
-
-  logs.forEach(log => {
-    const key = log.createdAt.toLocaleDateString("ms-MY", { day: "2-digit", month: "short" });
-    if (dailyTotals[key] !== undefined) {
-      dailyTotals[key] += log.minutes || 0;
-    }
-  });
-
-  const labels = Object.keys(dailyTotals);
-  const data = Object.values(dailyTotals);
-
-  if (weeklyChart) weeklyChart.destroy();
-
-  weeklyChart = new Chart(weeklyChartCanvas, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: "Minit Fokus",
-        data,
-        backgroundColor: "#3b82f6"
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        title: {
-          display: false
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            stepSize: 10
-          }
-        }
-      }
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      signupForm.reset();
+    } catch (error) {
+      console.error("Signup error:", error);
+      alert("Signup gagal: " + error.message);
     }
   });
 }
 
-// FILTER BUTTONS
-logFilters.querySelectorAll("button").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    currentLogRange = btn.dataset.range;
-    if (currentUser) loadFocusLogs(currentUser);
+// ===== LOGIN =====
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email = loginForm.loginEmail.value.trim();
+    const password = loginForm.loginPassword.value.trim();
+
+    if (!email || !password) return;
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      loginForm.reset();
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Login gagal: " + error.message);
+    }
   });
+}
+
+// ===== LOGOUT =====
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  });
+}
+
+// ===== AUTH STATE LISTENER =====
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+
+    userInfo.textContent = `Logged in sebagai: ${user.email}`;
+    authSection.style.display = "none";
+    appSection.style.display = "block";
+
+    // Load data
+    listenToUserActivities();
+    listenToFocusLog();
+    loadUserSoundPreference();
+  } else {
+    currentUser = null;
+
+    userInfo.textContent = "Sila login atau signup.";
+    authSection.style.display = "block";
+    appSection.style.display = "none";
+
+    // Clear UI
+    userActivitiesList.innerHTML = "";
+    focusLogList.innerHTML = "";
+    logSummary.textContent = "";
+  }
 });
 
+// =========================
+// THEME TOGGLE
+// =========================
+if (themeToggle) {
+  const savedTheme = localStorage.getItem("theme");
+
+  if (savedTheme === "dark") {
+    document.body.classList.add("dark");
+    themeToggle.textContent = "Light Mode";
+  }
+
+  themeToggle.addEventListener("click", () => {
+    const isDark = document.body.classList.toggle("dark");
+
+    if (isDark) {
+      localStorage.setItem("theme", "dark");
+      themeToggle.textContent = "Light Mode";
+    } else {
+      localStorage.setItem("theme", "light");
+      themeToggle.textContent = "Dark Mode";
+    }
+  });
+}
+
+// =========================
 // TAB SWITCHING
-function showPlanner() {
+// =========================
+function showPlannerView() {
   plannerView.style.display = "block";
   logView.style.display = "none";
+
   plannerTabBtn.disabled = true;
   logTabBtn.disabled = false;
 }
 
-function showLog() {
+function showLogView() {
   plannerView.style.display = "none";
   logView.style.display = "block";
+
   plannerTabBtn.disabled = false;
   logTabBtn.disabled = true;
-
-  if (currentUser) loadFocusLogs(currentUser);
 }
 
-plannerTabBtn.addEventListener("click", showPlanner);
-logTabBtn.addEventListener("click", showLog);
+if (plannerTabBtn && logTabBtn) {
+  plannerTabBtn.addEventListener("click", showPlannerView);
+  logTabBtn.addEventListener("click", showLogView);
+}
 
-// ADD ACTIVITY
-addActivityForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
+// Default tab
+showPlannerView();
 
-  if (!currentUser) {
-    alert("Sila login dahulu.");
+// =========================
+// PART 3 — ACTIVITIES + TICK/UNTICK (CLOUD SYNC)
+// =========================
+
+// ===== PRESET ACTIVITIES =====
+const presets = [
+  { name: "Deep Work", minutes: 60 },
+  { name: "Baca Buku", minutes: 30 },
+  { name: "Belajar / Kursus", minutes: 45 },
+  { name: "Rehat Fokus", minutes: 15 },
+];
+
+function renderPresetList() {
+  if (!presetList) return;
+  presetList.innerHTML = "";
+
+  presets.forEach((preset) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = `${preset.name} (${preset.minutes} minit)`;
+
+    btn.addEventListener("click", () => {
+      selectActivity({
+        id: null,
+        name: preset.name,
+        minutes: preset.minutes,
+        isPreset: true,
+      });
+    });
+
+    presetList.appendChild(btn);
+  });
+}
+
+renderPresetList();
+
+// ===== LISTEN TO USER ACTIVITIES =====
+function listenToUserActivities() {
+  if (!currentUser) return;
+
+  const activitiesRef = collection(db, "users", currentUser.uid, "activities");
+  const q = query(activitiesRef, orderBy("createdAt", "asc"));
+
+  onSnapshot(q, (snapshot) => {
+    const activities = [];
+    snapshot.forEach((docSnap) => {
+      activities.push({ id: docSnap.id, ...docSnap.data() });
+    });
+    renderUserActivities(activities);
+  });
+}
+
+// ===== RENDER ACTIVITIES =====
+function renderUserActivities(activities) {
+  if (!userActivitiesList) return;
+  userActivitiesList.innerHTML = "";
+
+  if (!activities.length) {
+    userActivitiesList.innerHTML =
+      `<li>Tiada aktiviti lagi. Tambah satu di atas.</li>`;
     return;
   }
 
-  const name = activityName.value.trim();
-  const minutes = parseInt(activityMinutes.value, 10);
+  activities.forEach((activity) => {
+    const li = document.createElement("li");
 
-  if (!name || !minutes || minutes <= 0) {
-    alert("Sila masukkan nama dan minit yang sah.");
+    const isDone = activity.completedToday === true;
+
+    li.innerHTML = `
+      <div style="flex:1;">
+        <span class="${isDone ? "activity-done" : ""}">
+          ${activity.name} (${activity.minutes} minit)
+        </span>
+        ${
+          isDone
+            ? `<span class="activity-done-badge">Selesai hari ini</span>`
+            : ""
+        }
+      </div>
+
+      <div style="display:flex; gap:6px;">
+        <button class="tick-btn" data-id="${activity.id}">
+          ${isDone ? "Untick" : "Tick"}
+        </button>
+
+        <button class="select-btn" data-id="${activity.id}">
+          Pilih
+        </button>
+
+        <button class="danger delete-btn" data-id="${activity.id}">
+          Delete
+        </button>
+      </div>
+    `;
+
+    userActivitiesList.appendChild(li);
+  });
+
+  attachActivityButtonsEvents();
+}
+
+// ===== ATTACH BUTTON EVENTS =====
+function attachActivityButtonsEvents() {
+  const tickButtons = document.querySelectorAll(".tick-btn");
+  const deleteButtons = document.querySelectorAll(".delete-btn");
+  const selectButtons = document.querySelectorAll(".select-btn");
+
+  // --- TICK / UNTICK ---
+  tickButtons.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!currentUser) return;
+
+      const activityId = btn.getAttribute("data-id");
+      const activityRef = doc(
+        db,
+        "users",
+        currentUser.uid,
+        "activities",
+        activityId
+      );
+
+      const isCurrentlyDone =
+        btn.textContent.trim().toLowerCase() === "untick";
+
+      try {
+        await updateDoc(activityRef, {
+          completedToday: !isCurrentlyDone,
+          lastCompletedAt: !isCurrentlyDone ? serverTimestamp() : null,
+        });
+      } catch (error) {
+        console.error("Gagal update tick:", error);
+        alert("Tak berjaya update status aktiviti.");
+      }
+    });
+  });
+
+  // --- DELETE ---
+  deleteButtons.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!currentUser) return;
+
+      const activityId = btn.getAttribute("data-id");
+      const activityRef = doc(
+        db,
+        "users",
+        currentUser.uid,
+        "activities",
+        activityId
+      );
+
+      if (!confirm("Padam aktiviti ini?")) return;
+
+      try {
+        await deleteDoc(activityRef);
+      } catch (error) {
+        console.error("Gagal padam aktiviti:", error);
+        alert("Tak berjaya padam aktiviti.");
+      }
+    });
+  });
+
+  // --- SELECT FOR TIMER ---
+  selectButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!currentUser) return;
+
+      const li = btn.closest("li");
+      const textSpan = li.querySelector("span");
+      const text = textSpan.textContent || "";
+
+      const match = text.match(/\((\d+)\s*minit\)/i);
+      const minutes = match ? parseInt(match[1], 10) : 0;
+      const name = text.replace(/\(\d+\s*minit\)/i, "").trim();
+
+      selectActivity({
+        id: btn.getAttribute("data-id"),
+        name,
+        minutes,
+        isPreset: false,
+      });
+    });
+  });
+}
+
+// ===== ADD NEW ACTIVITY =====
+if (addActivityForm) {
+  addActivityForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    const name = activityNameInput.value.trim();
+    const minutes = parseInt(activityMinutesInput.value.trim(), 10);
+
+    if (!name || !minutes) return;
+
+    try {
+      await addDoc(
+        collection(db, "users", currentUser.uid, "activities"),
+        {
+          name,
+          minutes,
+          completedToday: false,
+          createdAt: serverTimestamp(),
+        }
+      );
+
+      addActivityForm.reset();
+    } catch (error) {
+      console.error("Gagal tambah aktiviti:", error);
+      alert("Tak berjaya tambah aktiviti.");
+    }
+  });
+}
+
+// =========================
+// PART 4 — TIMER + AUTO-LOG + AUTO-TICK
+// =========================
+
+// ===== SELECT ACTIVITY FOR TIMER =====
+function selectActivity(activity) {
+  currentActivity = activity;
+
+  selectedActivityLabel.textContent =
+    `Aktiviti: ${activity.name} (${activity.minutes} minit)`;
+
+  remainingSeconds = activity.minutes * 60;
+  updateTimerDisplay();
+
+  startTimerBtn.disabled = false;
+}
+
+// ===== UPDATE TIMER DISPLAY =====
+function updateTimerDisplay() {
+  const m = Math.floor(remainingSeconds / 60)
+    .toString()
+    .padStart(2, "0");
+
+  const s = (remainingSeconds % 60)
+    .toString()
+    .padStart(2, "0");
+
+  timerDisplay.textContent = `${m}:${s}`;
+}
+
+// ===== START TIMER =====
+if (startTimerBtn) {
+  startTimerBtn.addEventListener("click", () => {
+    if (!currentActivity || remainingSeconds <= 0) return;
+
+    startTimerBtn.disabled = true;
+
+    if (timerInterval) clearInterval(timerInterval);
+
+    timerInterval = setInterval(async () => {
+      if (remainingSeconds > 0) {
+        remainingSeconds--;
+
+        // Small animation
+        timerDisplay.classList.add("tick");
+        updateTimerDisplay();
+        setTimeout(() => timerDisplay.classList.remove("tick"), 150);
+
+      } else {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        startTimerBtn.disabled = false;
+
+        await handleTimerComplete();
+      }
+    }, 1000);
+  });
+}
+
+// ===== HANDLE TIMER COMPLETE =====
+async function handleTimerComplete() {
+  if (!currentUser || !currentActivity) return;
+
+  // --- 1. Log ke Firestore ---
+  try {
+    await addDoc(
+      collection(db, "users", currentUser.uid, "focusLog"),
+      {
+        activityName: currentActivity.name,
+        minutes: currentActivity.minutes,
+        createdAt: serverTimestamp(),
+      }
+    );
+  } catch (error) {
+    console.error("Gagal log fokus:", error);
+  }
+
+  alert(`Sesi "${currentActivity.name}" selesai!`);
+
+  // --- 2. Auto-tick aktiviti (jika bukan preset) ---
+  if (currentActivity.id) {
+    const activityRef = doc(
+      db,
+      "users",
+      currentUser.uid,
+      "activities",
+      currentActivity.id
+    );
+
+    try {
+      await updateDoc(activityRef, {
+        completedToday: true,
+        lastCompletedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Gagal auto tick:", error);
+    }
+  }
+
+  // --- 3. Reset timer UI ---
+  remainingSeconds = currentActivity.minutes * 60;
+  updateTimerDisplay();
+}
+
+// =========================
+// PART 5 — FOCUS LOG + SUMMARY + FILTERS
+// =========================
+
+// ===== LISTEN TO FOCUS LOG =====
+function listenToFocusLog() {
+  if (!currentUser) return;
+
+  const logRef = collection(db, "users", currentUser.uid, "focusLog");
+  const q = query(logRef, orderBy("createdAt", "desc"));
+
+  onSnapshot(q, (snapshot) => {
+    const logs = [];
+    snapshot.forEach((docSnap) => {
+      logs.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    renderFocusLog(logs);
+    renderLogSummary(logs);
+  });
+}
+
+// ===== RENDER FOCUS LOG LIST =====
+function renderFocusLog(logs) {
+  if (!focusLogList) return;
+
+  focusLogList.innerHTML = "";
+
+  if (!logs.length) {
+    focusLogList.innerHTML = `<li>Belum ada log fokus.</li>`;
     return;
   }
 
-  try {
-    await addDoc(collection(db, "restActivities"), {
-      uid: currentUser.uid,
-      name,
-      minutes,
-      createdAt: serverTimestamp()
-    });
+  logs.forEach((item) => {
+    const li = document.createElement("li");
 
-    activityName.value = "";
-    activityMinutes.value = "";
+    const dateStr = item.createdAt?.toDate
+      ? item.createdAt.toDate().toLocaleString()
+      : "";
 
-    await loadUserActivities(currentUser);
-  } catch (err) {
-    console.error("Error tambah aktiviti:", err);
-    alert("Gagal tambah aktiviti.");
-  }
-});
+    li.innerHTML = `
+      <div style="flex:1;">
+        <strong>${item.activityName}</strong>
+        <div>${item.minutes} minit</div>
+        <div style="font-size:0.8rem; opacity:0.7;">${dateStr}</div>
+      </div>
+    `;
 
-// LOAD SOUND SETTING
-async function loadUserSound(user) {
-  try {
-    const snap = await getDoc(doc(db, "userSettings", user.uid));
-    if (snap.exists()) soundSelect.value = snap.data().sound;
-  } catch (err) {
-    console.error("Error load sound:", err);
-  }
+    focusLogList.appendChild(li);
+  });
 }
 
-// SAVE SOUND SETTING
-saveSoundBtn.addEventListener("click", async () => {
-  if (!currentUser) return alert("Sila login dahulu.");
+// ===== SUMMARY (TOTAL MINUTES) =====
+function renderLogSummary(logs) {
+  if (!logSummary) return;
 
-  try {
-    await setDoc(doc(db, "userSettings", currentUser.uid), {
-      sound: soundSelect.value
-    });
-    alert("Pilihan bunyi disimpan.");
-  } catch (err) {
-    console.error("Error save sound:", err);
+  if (!logs.length) {
+    logSummary.textContent = "";
+    return;
   }
-});
 
-// EDIT ACTIVITY
-async function onEditActivity(id, data) {
-  const newName = prompt("Nama aktiviti baru:", data.name);
-  if (newName === null) return;
+  let totalMinutes = 0;
+  logs.forEach((item) => {
+    totalMinutes += item.minutes || 0;
+  });
 
-  const newMinutesRaw = prompt("Minit fokus baru:", data.minutes);
-  if (newMinutesRaw === null) return;
-
-  const newMinutes = parseInt(newMinutesRaw, 10);
-  if (!newName.trim() || !newMinutes || newMinutes <= 0)
-    return alert("Input tidak sah.");
-
-  try {
-    await updateDoc(doc(db, "restActivities", id), {
-      name: newName.trim(),
-      minutes: newMinutes
-    });
-    loadUserActivities(currentUser);
-  } catch (err) {
-    console.error("Error update:", err);
-  }
+  logSummary.textContent =
+    `Jumlah masa fokus: ${totalMinutes} minit (semua sesi).`;
 }
 
-// DELETE ACTIVITY
-async function onDeleteActivity(id) {
-  if (!confirm("Padam aktiviti ini?")) return;
+// =========================
+// LOG FILTERS (Today, 7 Days, 30 Days, All)
+// =========================
 
-  try {
-    await deleteDoc(doc(db, "restActivities", id));
-    loadUserActivities(currentUser);
-  } catch (err) {
-    console.error("Error delete:", err);
-  }
+if (logFilters) {
+  logFilters.addEventListener("change", () => {
+    applyLogFilter(logFilters.value);
+  });
 }
 
-// LOAD ACTIVITIES
-async function loadUserActivities(user) {
-  userActivities.innerHTML = "<li>Loading...</li>";
+function applyLogFilter(filter) {
+  if (!currentUser) return;
 
-  try {
-    const q = query(
-      collection(db, "restActivities"),
-      where("uid", "==", user.uid),
+  const logRef = collection(db, "users", currentUser.uid, "focusLog");
+
+  let q;
+
+  const now = new Date();
+
+  if (filter === "today") {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    q = query(
+      logRef,
+      where("createdAt", ">=", start),
       orderBy("createdAt", "desc")
     );
+  }
 
-    const snap = await getDocs(q);
+  else if (filter === "7days") {
+    const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    q = query(
+      logRef,
+      where("createdAt", ">=", start),
+      orderBy("createdAt", "desc")
+    );
+  }
 
-    if (snap.empty) {
-      userActivities.innerHTML = "<li>Tiada aktiviti lagi.</li>";
-      return;
-    }
+  else if (filter === "30days") {
+    const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    q = query(
+      logRef,
+      where("createdAt", ">=", start),
+      orderBy("createdAt", "desc")
+    );
+  }
 
-    userActivities.innerHTML = "";
-    snap.forEach(docSnap => {
-      const data = docSnap.data();
-      const li = document.createElement("li");
+  else {
+    // ALL
+    q = query(logRef, orderBy("createdAt", "desc"));
+  }
 
-      const title = document.createElement("span");
-      title.textContent = `${data.name} — ${data.minutes} minit`;
-      title.style.cursor = "pointer";
-      title.onclick = () =>
-        selectActivity({
-          id: docSnap.id,
-          name: data.name,
-          minutes: data.minutes,
-          source: "custom"
-        });
-
-      const editBtn = document.createElement("button");
-      editBtn.textContent = "Edit";
-      editBtn.onclick = () => onEditActivity(docSnap.id, data);
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "Delete";
-      deleteBtn.style.background = "#ef4444";
-      deleteBtn.onclick = () => onDeleteActivity(docSnap.id);
-
-      li.appendChild(title);
-      li.appendChild(editBtn);
-      li.appendChild(deleteBtn);
-
-      userActivities.appendChild(li);
+  onSnapshot(q, (snapshot) => {
+    const logs = [];
+    snapshot.forEach((docSnap) => {
+      logs.push({ id: docSnap.id, ...docSnap.data() });
     });
-  } catch (err) {
-    console.error("Error load activities:", err);
+
+    renderFocusLog(logs);
+    renderLogSummary(logs);
+  });
+}
+
+// =========================
+// PART 6 — WEEKLY CHART + WEEKLY STATS
+// =========================
+
+// ===== GENERATE LAST 7 DAYS LABELS =====
+function getLast7DaysLabels() {
+  const labels = [];
+  const now = new Date();
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    labels.push(d.toLocaleDateString("ms-MY", { weekday: "short" }));
+  }
+
+  return labels;
+}
+
+// ===== LISTEN TO LOGS FOR WEEKLY CHART =====
+function updateWeeklyAnalytics(logs) {
+  const now = new Date();
+  const dailyTotals = [0, 0, 0, 0, 0, 0, 0]; // 7 hari
+
+  logs.forEach((item) => {
+    if (!item.createdAt?.toDate) return;
+
+    const date = item.createdAt.toDate();
+    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+    if (diffDays >= 0 && diffDays < 7) {
+      const index = 6 - diffDays; // hari terbaru di kanan
+      dailyTotals[index] += item.minutes || 0;
+    }
+  });
+
+  renderWeeklyChart(dailyTotals);
+  renderWeeklyStats(dailyTotals);
+}
+
+// ===== RENDER WEEKLY CHART =====
+function renderWeeklyChart(dailyTotals) {
+  if (!weeklyChartCanvas) return;
+
+  const labels = getLast7DaysLabels();
+
+  // Destroy chart lama kalau ada
+  if (weeklyChartInstance) {
+    weeklyChartInstance.destroy();
+  }
+
+  weeklyChartInstance = new Chart(weeklyChartCanvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Minit Fokus",
+          data: dailyTotals,
+          backgroundColor: "rgba(59, 130, 246, 0.6)",
+          borderColor: "rgba(37, 99, 235, 1)",
+          borderWidth: 1,
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { color: "#555" },
+        },
+        x: {
+          ticks: { color: "#555" },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+      },
+    },
+  });
+}
+
+// ===== RENDER WEEKLY STATS LIST =====
+function renderWeeklyStats(dailyTotals) {
+  if (!weeklyStatsList) return;
+
+  weeklyStatsList.innerHTML = "";
+
+  const labels = getLast7DaysLabels();
+
+  for (let i = 0; i < 7; i++) {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <strong>${labels[i]}</strong>: ${dailyTotals[i]} minit
+    `;
+    weeklyStatsList.appendChild(li);
   }
 }
 
-// AUTH STATE
-onAuthStateChanged(auth, (user) => {
-  currentUser = user;
+// ===== INTEGRATE WITH LOG SNAPSHOT =====
+// Modify listenToFocusLog to call updateWeeklyAnalytics(logs)
+function listenToFocusLog() {
+  if (!currentUser) return;
 
-  if (user) {
-    userInfo.textContent = `Logged in as: ${user.email}`;
-    authSection.style.display = "none";
-    appSection.style.display = "block";
+  const logRef = collection(db, "users", currentUser.uid, "focusLog");
+  const q = query(logRef, orderBy("createdAt", "desc"));
 
-    renderPresets();
-    loadUserActivities(user);
-    loadUserSound(user);
-    showPlanner();
-  } else {
-    userInfo.textContent = "Not logged in";
-    authSection.style.display = "block";
-    appSection.style.display = "none";
-  }
-});
+  onSnapshot(q, (snapshot) => {
+    const logs = [];
+    snapshot.forEach((docSnap) => {
+      logs.push({ id: docSnap.id, ...docSnap.data() });
+    });
 
-// SIGNUP
-signupForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  try {
-    await createUserWithEmailAndPassword(
-      auth,
-      signupForm.signupEmail.value,
-      signupForm.signupPassword.value
-    );
-    signupForm.reset();
-  } catch (err) {
-    alert(err.message);
-  }
-});
+    // Render log list + summary
+    renderFocusLog(logs);
+    renderLogSummary(logs);
 
-// LOGIN
-loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  try {
-    await signInWithEmailAndPassword(
-      auth,
-      loginForm.loginEmail.value,
-      loginForm.loginPassword.value
-    );
-    loginForm.reset();
-  } catch (err) {
-    alert(err.message);
-  }
-});
-
-// LOGOUT
-logoutBtn.addEventListener("click", async () => {
-  await signOut(auth);
-});
-
-// START TIMER
-startTimerBtn.addEventListener("click", startTimer);
-
-// THEME TOGGLE
-const themeToggle = document.getElementById("themeToggle");
-
-// Load saved theme
-const savedTheme = localStorage.getItem("theme");
-if (savedTheme === "dark") {
-  document.body.classList.add("dark");
-  themeToggle.textContent = "Light Mode";
+    // NEW: Weekly analytics
+    updateWeeklyAnalytics(logs);
+  });
 }
-
-// Toggle theme on click
-themeToggle.addEventListener("click", () => {
-  const isDark = document.body.classList.toggle("dark");
-
-  if (isDark) {
-    localStorage.setItem("theme", "dark");
-    themeToggle.textContent = "Light Mode";
-  } else {
-    localStorage.setItem("theme", "light");
-    themeToggle.textContent = "Dark Mode";
-  }
-});
-
