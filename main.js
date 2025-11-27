@@ -17,7 +17,9 @@ import {
   serverTimestamp,
   doc,
   setDoc,
-  getDoc
+  getDoc,
+  updateDoc,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
 // UI ELEMENTS
@@ -37,13 +39,17 @@ const userActivities = document.getElementById("userActivities");
 
 const timerDisplay = document.getElementById("timerDisplay");
 const startTimerBtn = document.getElementById("startTimerBtn");
+const selectedActivityLabel = document.getElementById("selectedActivityLabel");
 
 const soundSelect = document.getElementById("soundSelect");
 const saveSoundBtn = document.getElementById("saveSoundBtn");
 
 // STATE
 let selectedMinutes = 0;
+let selectedActivityName = "";
+let selectedActivityId = null; // untuk log & future features
 let timerInterval = null;
+let currentUser = null;
 
 // PRESET ACTIVITIES
 const presets = [
@@ -59,30 +65,43 @@ function renderPresets() {
     const btn = document.createElement("button");
     btn.textContent = `${p.name}`;
     btn.type = "button";
-    btn.onclick = () => selectActivity(p.minutes);
+    btn.onclick = () => {
+      selectActivity({
+        id: null,
+        name: p.name,
+        minutes: p.minutes,
+        source: "preset"
+      });
+    };
     presetList.appendChild(btn);
   });
 }
 
 // SELECT ACTIVITY (set minutes & enable start)
-function selectActivity(minutes) {
+function selectActivity({ id, name, minutes, source }) {
   selectedMinutes = minutes;
+  selectedActivityName = name;
+  selectedActivityId = id;
   startTimerBtn.disabled = false;
   timerDisplay.textContent = `${String(minutes).padStart(2, "0")}:00`;
+  selectedActivityLabel.textContent = `${source === "preset" ? "[Preset] " : ""}${name} — ${minutes} minit`;
 }
 
 // TIMER LOGIC
 function startTimer() {
   if (!selectedMinutes || selectedMinutes <= 0) return;
+  if (!currentUser) {
+    alert("Sila login dahulu.");
+    return;
+  }
 
   // Prevent multiple timers
   if (timerInterval) clearInterval(timerInterval);
 
   let totalSeconds = selectedMinutes * 60;
-
   updateTimerDisplay(totalSeconds);
 
-  timerInterval = setInterval(() => {
+  timerInterval = setInterval(async () => {
     totalSeconds--;
 
     if (totalSeconds <= 0) {
@@ -91,6 +110,9 @@ function startTimer() {
       updateTimerDisplay(0);
       playSound();
       alert("Fokus selesai!");
+
+      // Simpan log ke Firestore
+      await logFocusSession();
       return;
     }
 
@@ -123,6 +145,22 @@ function playSound() {
   audio.play();
 }
 
+// FIRESTORE: LOG FOCUS SESSION
+async function logFocusSession() {
+  try {
+    await addDoc(collection(db, "focusLogs"), {
+      uid: currentUser.uid,
+      activityId: selectedActivityId || null,
+      activityName: selectedActivityName || "Tidak diketahui",
+      minutes: selectedMinutes,
+      createdAt: serverTimestamp()
+    });
+    console.log("Focus session logged");
+  } catch (err) {
+    console.error("Error log focus session:", err);
+  }
+}
+
 // FIRESTORE: LOAD USER ACTIVITIES
 async function loadUserActivities(user) {
   userActivities.innerHTML = "<li>Loading...</li>";
@@ -145,9 +183,35 @@ async function loadUserActivities(user) {
     snap.forEach((docSnap) => {
       const data = docSnap.data();
       const li = document.createElement("li");
-      li.textContent = `${data.name} — ${data.minutes} minit`;
-      li.style.cursor = "pointer";
-      li.onclick = () => selectActivity(data.minutes);
+
+      const titleSpan = document.createElement("span");
+      titleSpan.textContent = `${data.name} — ${data.minutes} minit`;
+      titleSpan.style.cursor = "pointer";
+      titleSpan.onclick = () =>
+        selectActivity({
+          id: docSnap.id,
+          name: data.name,
+          minutes: data.minutes,
+          source: "custom"
+        });
+
+      const editBtn = document.createElement("button");
+      editBtn.textContent = "Edit";
+      editBtn.type = "button";
+      editBtn.style.marginLeft = "0.5rem";
+      editBtn.onclick = () => onEditActivity(docSnap.id, data);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "Delete";
+      deleteBtn.type = "button";
+      deleteBtn.style.marginLeft = "0.5rem";
+      deleteBtn.style.background = "#ef4444";
+      deleteBtn.onclick = () => onDeleteActivity(docSnap.id);
+
+      li.appendChild(titleSpan);
+      li.appendChild(editBtn);
+      li.appendChild(deleteBtn);
+
       userActivities.appendChild(li);
     });
   } catch (err) {
@@ -156,39 +220,43 @@ async function loadUserActivities(user) {
   }
 }
 
-// FIRESTORE: ADD CUSTOM ACTIVITY
-addActivityForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) {
-    alert("Sila login dahulu.");
-    return;
-  }
-
-  const name = activityName.value.trim();
-  const minutes = parseInt(activityMinutes.value, 10);
-
-  if (!name || !minutes || minutes <= 0) {
-    alert("Sila isi nama dan minit yang sah.");
+// EDIT ACTIVITY
+async function onEditActivity(id, data) {
+  const newName = prompt("Nama aktiviti baru:", data.name);
+  if (newName === null) return; // cancel
+  const newMinutesRaw = prompt("Minit fokus baru:", data.minutes);
+  if (newMinutesRaw === null) return;
+  const newMinutes = parseInt(newMinutesRaw, 10);
+  if (!newName.trim() || !newMinutes || newMinutes <= 0) {
+    alert("Input tidak sah.");
     return;
   }
 
   try {
-    await addDoc(collection(db, "restActivities"), {
-      uid: user.uid,
-      name,
-      minutes,
-      createdAt: serverTimestamp()
+    await updateDoc(doc(db, "restActivities", id), {
+      name: newName.trim(),
+      minutes: newMinutes
     });
-
-    activityName.value = "";
-    activityMinutes.value = "";
-    await loadUserActivities(user);
+    if (currentUser) await loadUserActivities(currentUser);
   } catch (err) {
-    console.error("Error add activity:", err);
-    alert("Gagal simpan aktiviti.");
+    console.error("Error update activity:", err);
+    alert("Gagal update aktiviti.");
   }
-});
+}
+
+// DELETE ACTIVITY
+async function onDeleteActivity(id) {
+  const confirmDelete = confirm("Padam aktiviti ini?");
+  if (!confirmDelete) return;
+
+  try {
+    await deleteDoc(doc(db, "restActivities", id));
+    if (currentUser) await loadUserActivities(currentUser);
+  } catch (err) {
+    console.error("Error delete activity:", err);
+    alert("Gagal padam aktiviti.");
+  }
+}
 
 // FIRESTORE: LOAD USER SOUND SETTING
 async function loadUserSound(user) {
@@ -211,15 +279,14 @@ async function loadUserSound(user) {
 
 // FIRESTORE: SAVE USER SOUND SETTING
 saveSoundBtn.addEventListener("click", async () => {
-  const user = auth.currentUser;
-  if (!user) {
+  if (!currentUser) {
     alert("Sila login dahulu.");
     return;
   }
 
   const sound = soundSelect.value;
   try {
-    await setDoc(doc(db, "userSettings", user.uid), { sound }, { merge: true });
+    await setDoc(doc(db, "userSettings", currentUser.uid), { sound }, { merge: true });
     alert("Pilihan bunyi disimpan.");
   } catch (err) {
     console.error("Error save sound:", err);
@@ -229,6 +296,7 @@ saveSoundBtn.addEventListener("click", async () => {
 
 // AUTH STATE
 onAuthStateChanged(auth, (user) => {
+  currentUser = user;
   if (user) {
     userInfo.textContent = `Logged in as: ${user.email}`;
     authSection.style.display = "none";
@@ -242,7 +310,10 @@ onAuthStateChanged(auth, (user) => {
     appSection.style.display = "none";
     userActivities.innerHTML = "";
     timerDisplay.textContent = "00:00";
+    selectedActivityLabel.textContent = "Tiada aktiviti dipilih.";
     startTimerBtn.disabled = true;
+    selectedActivityId = null;
+    selectedActivityName = "";
   }
 });
 
