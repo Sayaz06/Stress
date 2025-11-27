@@ -1451,3 +1451,35 @@ body.dark .circular-progress .bg {
   100% { opacity: 0; transform: translate(-50%, 10px); }
 }
 
+/* ================================
+   PART 11 — UX POLISH
+================================ */
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Auto-focus glow */
+input:focus, select:focus, button:focus {
+  outline: 2px solid rgba(59,130,246,0.5);
+  outline-offset: 2px;
+}
+
+/* Timer highlight */
+.timer-highlight {
+  animation: timerGlow 1s ease-out;
+}
+
+@keyframes timerGlow {
+  0% { background: rgba(59,130,246,0.25); }
+  100% { background: transparent; }
+}
+
+/* Better spacing for lists */
+#userActivities li,
+#focusLogList li,
+#weeklyStatsList li {
+  margin-bottom: 6px;
+}
+
