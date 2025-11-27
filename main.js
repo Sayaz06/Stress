@@ -145,7 +145,6 @@ async function logFocusSession() {
     console.error("Error log focus:", err);
   }
 }
-
 async function loadFocusLogs(user) {
   focusLogList.innerHTML = "<li>Loading...</li>";
   logSummary.textContent = "";
@@ -243,7 +242,6 @@ function renderSummary(logs) {
 function renderWeeklyStats(logs) {
   weeklyStatsList.innerHTML = "";
 
-  // Filter hanya untuk 7 hari
   const now = new Date();
   const weekLogs = logs.filter(l => {
     const diff = (now - l.createdAt) / (1000 * 60 * 60 * 24);
@@ -255,13 +253,9 @@ function renderWeeklyStats(logs) {
     return;
   }
 
-  // Total minit minggu ini
   const totalWeek = weekLogs.reduce((sum, l) => sum + (l.minutes || 0), 0);
-
-  // Purata harian
   const avg = Math.round(totalWeek / 7);
 
-  // Aktiviti popular
   const countMap = {};
   weekLogs.forEach(l => {
     countMap[l.activityName] = (countMap[l.activityName] || 0) + 1;
@@ -270,7 +264,6 @@ function renderWeeklyStats(logs) {
   const popular = Object.entries(countMap)
     .sort((a, b) => b[1] - a[1])[0][0];
 
-  // Streak harian
   let streak = 0;
   for (let i = 0; i < 7; i++) {
     const day = new Date(now);
@@ -291,7 +284,6 @@ function renderWeeklyStats(logs) {
     <li>Streak harian: <strong>${streak} hari</strong></li>
   `;
 }
-
 // FILTER BUTTONS
 logFilters.querySelectorAll("button").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -416,3 +408,112 @@ async function onDeleteActivity(id) {
 
 // LOAD ACTIVITIES
 async function loadUserActivities(user) {
+  userActivities.innerHTML = "<li>Loading...</li>";
+
+  try {
+    const q = query(
+      collection(db, "restActivities"),
+      where("uid", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      userActivities.innerHTML = "<li>Tiada aktiviti lagi.</li>";
+      return;
+    }
+
+    userActivities.innerHTML = "";
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
+      const li = document.createElement("li");
+
+      const title = document.createElement("span");
+      title.textContent = `${data.name} — ${data.minutes} minit`;
+      title.style.cursor = "pointer";
+      title.onclick = () =>
+        selectActivity({
+          id: docSnap.id,
+          name: data.name,
+          minutes: data.minutes,
+          source: "custom"
+        });
+
+      const editBtn = document.createElement("button");
+      editBtn.textContent = "Edit";
+      editBtn.onclick = () => onEditActivity(docSnap.id, data);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "Delete";
+      deleteBtn.style.background = "#ef4444";
+      deleteBtn.onclick = () => onDeleteActivity(docSnap.id);
+
+      li.appendChild(title);
+      li.appendChild(editBtn);
+      li.appendChild(deleteBtn);
+
+      userActivities.appendChild(li);
+    });
+  } catch (err) {
+    console.error("Error load activities:", err);
+  }
+}
+
+// AUTH STATE
+onAuthStateChanged(auth, (user) => {
+  currentUser = user;
+
+  if (user) {
+    userInfo.textContent = `Logged in as: ${user.email}`;
+    authSection.style.display = "none";
+    appSection.style.display = "block";
+
+    renderPresets();
+    loadUserActivities(user);
+    loadUserSound(user);
+    showPlanner();
+  } else {
+    userInfo.textContent = "Not logged in";
+    authSection.style.display = "block";
+    appSection.style.display = "none";
+  }
+});
+
+// SIGNUP
+signupForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await createUserWithEmailAndPassword(
+      auth,
+      signupForm.signupEmail.value,
+      signupForm.signupPassword.value
+    );
+    signupForm.reset();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// LOGIN
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await signInWithEmailAndPassword(
+      auth,
+      loginForm.loginEmail.value,
+      loginForm.loginPassword.value
+    );
+    loginForm.reset();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// LOGOUT
+logoutBtn.addEventListener("click", async () => {
+  await signOut(auth);
+});
+
+// START TIMER
+startTimerBtn.addEventListener("click", startTimer);
