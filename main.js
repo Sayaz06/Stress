@@ -255,6 +255,41 @@ saveSoundBtn.addEventListener("click", async () => {
   }
 });
 
+// ✅ ADD ACTIVITY (INI YANG HILANG SEBELUM NI)
+addActivityForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  if (!currentUser) {
+    alert("Sila login dahulu.");
+    return;
+  }
+
+  const name = activityName.value.trim();
+  const minutes = parseInt(activityMinutes.value, 10);
+
+  if (!name || !minutes || minutes <= 0) {
+    alert("Sila masukkan nama dan minit yang sah.");
+    return;
+  }
+
+  try {
+    await addDoc(collection(db, "restActivities"), {
+      uid: currentUser.uid,
+      name,
+      minutes,
+      createdAt: serverTimestamp()
+    });
+
+    activityName.value = "";
+    activityMinutes.value = "";
+
+    await loadUserActivities(currentUser);
+  } catch (err) {
+    console.error("Error tambah aktiviti:", err);
+    alert("Gagal tambah aktiviti.");
+  }
+});
+
 // AUTH STATE
 onAuthStateChanged(auth, (user) => {
   currentUser = user;
