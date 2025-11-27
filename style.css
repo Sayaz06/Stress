@@ -469,3 +469,886 @@ form button {
   border-radius: 8px;
   font-weight: 500;
 }
+
+/* ================================
+   UI UPGRADE PART 2 — FULL
+   ================================ */
+
+/* CARD LAYOUT IMPROVED */
+.card,
+section,
+#plannerView,
+#logView {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  margin: 16px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+  transition: 0.25s ease;
+}
+
+.card:hover,
+section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+
+/* BUTTON UPGRADE */
+button {
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  transition: 0.25s ease;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+/* DANGER BUTTON */
+button.danger,
+ul li button[style*="ef4444"] {
+  background: var(--danger);
+}
+
+button.danger:hover,
+ul li button[style*="ef4444"]:hover {
+  background: var(--danger-hover);
+}
+
+/* INPUT UPGRADE */
+input, select {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  transition: 0.25s ease;
+}
+
+input:hover, select:hover {
+  border-color: var(--accent);
+}
+
+input:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* LIST UPGRADE */
+ul li {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  transition: 0.25s ease;
+}
+
+ul li:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* ACTIVITY TITLE */
+ul li span {
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+ul li span:hover {
+  opacity: 0.7;
+}
+
+/* PRESET BUTTONS */
+#presetList button {
+  width: 100%;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* TIMER UI UPGRADE */
+#timerDisplay {
+  font-size: 3.4rem;
+  font-weight: 700;
+  margin: 20px 0;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+#selectedActivityLabel {
+  text-align: center;
+  font-size: 1rem;
+  opacity: 0.8;
+  margin-bottom: 10px;
+}
+
+/* LOG FILTER BUTTONS */
+#logFilters button {
+  padding: 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+#logFilters button:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* WEEKLY STATS CARD */
+#weeklyStatsCard {
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* WEEKLY CHART CONTAINER */
+#weeklyChart {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* NAV BUTTON ACTIVE STATE */
+nav button:disabled {
+  background: var(--border);
+  color: var(--text);
+  opacity: 0.7;
+  transform: none;
+  box-shadow: none;
+}
+
+/* MOBILE RESPONSIVE IMPROVEMENTS */
+@media (max-width: 600px) {
+  ul li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  ul li button {
+    width: 100%;
+  }
+
+  #timerDisplay {
+    font-size: 2.6rem;
+  }
+
+  button {
+    padding: 10px 14px;
+  }
+}
+
+/* ================================
+   UI UPGRADE PART 3 — FINAL POLISH
+   ================================ */
+
+/* GLOBAL TYPOGRAPHY IMPROVEMENT */
+body {
+  line-height: 1.55;
+  font-size: 16px;
+}
+
+h1, h2, h3 {
+  letter-spacing: 0.3px;
+}
+
+/* SECTION SPACING IMPROVED */
+section, .card {
+  margin-top: 22px;
+  margin-bottom: 22px;
+}
+
+/* HEADER POLISH */
+header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+header h1 {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* NAVIGATION POLISH */
+nav {
+  margin-bottom: 20px;
+}
+
+nav button {
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 1rem;
+}
+
+/* INPUT + FORM POLISH */
+form {
+  margin-top: 10px;
+}
+
+form input, form select {
+  font-size: 1rem;
+  border-radius: 12px;
+}
+
+form button {
+  margin-top: 8px;
+  border-radius: 12px;
+}
+
+/* LIST POLISH */
+ul li {
+  padding: 16px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+}
+
+ul li span {
+  font-size: 1rem;
+}
+
+/* BUTTON POLISH */
+button {
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+button:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+/* TIMER POLISH */
+#timerDisplay {
+  font-size: 3.6rem;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  letter-spacing: 1.2px;
+}
+
+#selectedActivityLabel {
+  font-size: 1.05rem;
+  margin-bottom: 12px;
+}
+
+/* LOG SUMMARY POLISH */
+#logSummary {
+  font-size: 1rem;
+  margin-bottom: 14px;
+  opacity: 0.85;
+}
+
+/* WEEKLY STATS POLISH */
+#weeklyStatsCard {
+  padding: 18px;
+  border-radius: 16px;
+}
+
+#weeklyStatsList li {
+  padding: 10px 0;
+  font-size: 0.95rem;
+}
+
+/* CHART POLISH */
+#weeklyChart {
+  padding: 18px;
+  border-radius: 16px;
+  margin-top: 20px;
+}
+
+/* DARK MODE POLISH */
+body.dark section,
+body.dark .card {
+  box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+}
+
+body.dark ul li {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+
+body.dark button:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+/* MICRO-ANIMATIONS */
+.fade-smooth {
+  animation: fadeSmooth 0.45s ease;
+}
+
+@keyframes fadeSmooth {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* SECTION TITLE SPACING */
+section h2, section h3 {
+  margin-bottom: 14px;
+}
+
+/* AUTH SECTION POLISH */
+#authSection {
+  padding: 20px;
+  border-radius: 16px;
+}
+
+/* APP SECTION POLISH */
+#appSection {
+  padding-bottom: 40px;
+}
+
+/* MOBILE POLISH */
+@media (max-width: 600px) {
+  section, .card {
+    padding: 14px;
+  }
+
+  #timerDisplay {
+    font-size: 2.8rem;
+  }
+
+  button {
+    padding: 10px 14px;
+  }
+
+  ul li {
+    padding: 14px;
+  }
+}
+
+/* ================================
+   UI UPGRADE PART 4 — PREMIUM EFFECTS
+   ================================ */
+
+/* GLASSMORPHISM EFFECT (subtle) */
+.glass {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+  padding: 18px;
+  transition: 0.3s ease;
+}
+
+body.dark .glass {
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* APPLY GLASS TO MAIN SECTIONS */
+#plannerView,
+#logView,
+#authSection {
+  border-radius: 18px;
+  padding: 20px;
+}
+
+/* GLOW EFFECTS (subtle, premium) */
+button:hover {
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+}
+
+button.danger:hover {
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+}
+
+input:focus, select:focus {
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.35);
+}
+
+/* CARD DEPTH IMPROVEMENT */
+section, .card {
+  box-shadow: 0 3px 14px rgba(0,0,0,0.06);
+}
+
+section:hover, .card:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.10);
+}
+
+/* DARK MODE DEPTH */
+body.dark section,
+body.dark .card {
+  box-shadow: 0 3px 14px rgba(0,0,0,0.45);
+}
+
+body.dark section:hover,
+body.dark .card:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.55);
+}
+
+/* PREMIUM TRANSITIONS */
+* {
+  transition: background 0.25s ease, color 0.25s ease, border 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* SECTION TITLE POLISH */
+section h2, section h3 {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  margin-bottom: 16px;
+}
+
+/* PREMIUM LIST ITEM EFFECT */
+ul li {
+  border-radius: 14px;
+  padding: 16px;
+  transition: 0.25s ease;
+}
+
+ul li:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.10);
+}
+
+/* ACTIVITY TITLE POLISH */
+ul li span {
+  font-size: 1.05rem;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+ul li span:hover {
+  opacity: 0.6;
+}
+
+/* CHART CARD PREMIUM LOOK */
+#weeklyChart {
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+body.dark #weeklyChart {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+}
+
+/* TIMER DISPLAY POLISH */
+#timerDisplay {
+  font-size: 3.8rem;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+body.dark #timerDisplay {
+  text-shadow: 0 2px 6px rgba(255,255,255,0.15);
+}
+
+/* DARK MODE TOGGLE POLISH */
+#themeToggle {
+  border-radius: 50px;
+  padding: 12px 20px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+}
+
+#themeToggle:hover {
+  box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+  transform: translateY(-2px);
+}
+
+/* MOBILE POLISH */
+@media (max-width: 600px) {
+  #weeklyChart {
+    padding: 14px;
+  }
+
+  #timerDisplay {
+    font-size: 2.9rem;
+  }
+
+  button {
+    padding: 10px 14px;
+  }
+
+  ul li {
+    padding: 14px;
+  }
+}
+
+/* ================================
+   UI UPGRADE PART 5 — OPTIONAL PREMIUM EFFECTS
+   ================================ */
+
+/* --------------------------------
+   1. BUTTON RIPPLE EFFECT
+----------------------------------- */
+
+button {
+  position: relative;
+  overflow: hidden;
+}
+
+button::after {
+  content: "";
+  position: absolute;
+  background: rgba(255,255,255,0.5);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+
+button:active::after {
+  transform: scale(18);
+  opacity: 0.25;
+}
+
+/* --------------------------------
+   2. TAB TRANSITION ANIMATION
+----------------------------------- */
+
+#plannerView,
+#logView {
+  animation: tabSwitch 0.45s ease;
+}
+
+@keyframes tabSwitch {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --------------------------------
+   3. TIMER TRANSITION EFFECT
+----------------------------------- */
+
+#timerDisplay {
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+
+#timerDisplay.tick {
+  transform: scale(1.06);
+  color: var(--accent);
+}
+
+body.dark #timerDisplay.tick {
+  color: var(--accent-hover);
+}
+
+/* --------------------------------
+   4. FLOATING CARD EFFECT
+----------------------------------- */
+
+.floating-card {
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.floating-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.12);
+}
+
+body.dark .floating-card:hover {
+  box-shadow: 0 10px 26px rgba(0,0,0,0.45);
+}
+
+/* Apply floating effect to main sections */
+#plannerView,
+#logView,
+#authSection {
+  border-radius: 20px;
+}
+
+/* --------------------------------
+   5. GLASS HEADER (OPTIONAL)
+----------------------------------- */
+
+header {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255,255,255,0.65);
+  border-bottom: 1px solid rgba(255,255,255,0.4);
+}
+
+body.dark header {
+  background: rgba(15,23,42,0.55);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+/* --------------------------------
+   6. PAGE TRANSITION
+----------------------------------- */
+
+body {
+  animation: pageFade 0.5s ease;
+}
+
+@keyframes pageFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --------------------------------
+   7. INPUT FOCUS GLOW (PREMIUM)
+----------------------------------- */
+
+input:focus, select:focus {
+  box-shadow: 0 0 12px rgba(59,130,246,0.45);
+}
+
+body.dark input:focus,
+body.dark select:focus {
+  box-shadow: 0 0 12px rgba(96,165,250,0.55);
+}
+
+/* --------------------------------
+   8. LIST ITEM FLOAT EFFECT
+----------------------------------- */
+
+ul li {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+ul li:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
+body.dark ul li:hover {
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+}
+
+/* --------------------------------
+   9. CHART CONTAINER GLOW
+----------------------------------- */
+
+#weeklyChart:hover {
+  box-shadow: 0 0 18px rgba(59,130,246,0.25);
+}
+
+body.dark #weeklyChart:hover {
+  box-shadow: 0 0 18px rgba(96,165,250,0.35);
+}
+
+/* ================================
+   UI UPGRADE PART 6 — OPTIONAL LOADING & PROGRESS
+   ================================ */
+
+/* 1. SKELETON LOADING BASE */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.18) 0%,
+    rgba(148, 163, 184, 0.35) 40%,
+    rgba(148, 163, 184, 0.18) 80%
+  );
+  background-size: 200% 100%;
+  animation: skeletonLoading 1.4s ease-in-out infinite;
+  border-radius: 999px;
+}
+
+@keyframes skeletonLoading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Skeleton line variations */
+
+.skeleton-line {
+  height: 12px;
+  margin-bottom: 8px;
+}
+
+.skeleton-line.sm {
+  width: 40%;
+}
+
+.skeleton-line.md {
+  width: 65%;
+}
+
+.skeleton-line.lg {
+  width: 90%;
+}
+
+/* Skeleton block (for cards) */
+
+.skeleton-card {
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(148, 163, 184, 0.15);
+  animation: skeletonFade 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes skeletonFade {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 0.3;
+  }
+}
+
+/* 2. PROGRESS BAR (LINEAR) */
+
+.progress-bar-container {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.4);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #3b82f6,
+    #22c55e
+  );
+  transition: width 0.3s ease;
+}
+
+/* Dark mode variant */
+
+body.dark .progress-bar-container {
+  background: rgba(30, 64, 175, 0.7);
+}
+
+/* 3. CIRCULAR PROGRESS (FOR FUTURE TIMER RING) */
+
+.circular-progress {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin: 0 auto;
+}
+
+.circular-progress svg {
+  transform: rotate(-90deg);
+}
+
+.circular-progress circle {
+  fill: none;
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.circular-progress .bg {
+  stroke: rgba(148, 163, 184, 0.4);
+}
+
+.circular-progress .fg {
+  stroke: url(#timerGradient);
+  stroke-dasharray: 440;  /* example circumference */
+  stroke-dashoffset: 440; /* fully empty */
+  transition: stroke-dashoffset 0.3s linear;
+}
+
+/* Center text inside circular progress */
+
+.circular-progress .label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+/* Dark mode tweak */
+
+body.dark .circular-progress .bg {
+  stroke: rgba(30, 64, 175, 0.7);
+}
+
+/* 4. LOADING STATE CLASS (FOR LIST / CARD) */
+
+.loading-state {
+  opacity: 0.6;
+  pointer-events: none;
+  filter: grayscale(0.2);
+}
+
+/* 5. SMALL LOADING DOTS ANIMATION (CAN USE IN TEXT) */
+
+.loading-dots::after {
+  content: "...";
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  animation: dotsBlink 1.2s steps(4, jump-none) infinite;
+}
+
+@keyframes dotsBlink {
+  0% {
+    content: "";
+  }
+  25% {
+    content: ".";
+  }
+  50% {
+    content: "..";
+  }
+  75% {
+    content: "...";
+  }
+}
+
+/* 6. OPTIONAL: APPLY SKELETON TO SPECIFIC AREAS BY CLASS */
+
+/* Example: for log list container */
+#focusLogList.loading li {
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Example: skeleton style for log items (when loading) */
+#focusLogList.loading li span,
+#userActivities.loading li span {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+  height: 10px;
+  width: 70%;
+}
+
