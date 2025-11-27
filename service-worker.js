@@ -1,4 +1,4 @@
-const CACHE = "stress-cache-v4";
+const CACHE = "stress-cache-v5";
 const FILES = [
   "./",
   "./index.html",
