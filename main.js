@@ -978,3 +978,212 @@ onAuthStateChanged(auth, (user) => {
     logSummary.textContent = "";
   }
 });
+
+// =========================
+// PART 9 — MICRO INTERACTIONS UI
+// =========================
+
+// Fade-in setiap kali render aktiviti
+function renderUserActivities(activities) {
+  if (!userActivitiesList) return;
+  userActivitiesList.innerHTML = "";
+
+  if (!activities.length) {
+    userActivitiesList.innerHTML =
+      `<li class="fade-in">Tiada aktiviti lagi. Tambah satu di atas.</li>`;
+    return;
+  }
+
+  activities.forEach((activity) => {
+    const li = document.createElement("li");
+    li.classList.add("fade-in");
+
+    const isDone = activity.completedToday === true;
+
+    li.innerHTML = `
+      <div style="flex:1;">
+        <span class="${isDone ? "activity-done" : ""}">
+          ${activity.name} (${activity.minutes} minit)
+        </span>
+        ${
+          isDone
+            ? `<span class="activity-done-badge pulse">Selesai hari ini</span>`
+            : ""
+        }
+      </div>
+
+      <div style="display:flex; gap:6px;">
+        <button class="tick-btn" data-id="${activity.id}">
+          ${isDone ? "Untick" : "Tick"}
+        </button>
+
+        <button class="select-btn" data-id="${activity.id}">
+          Pilih
+        </button>
+
+        <button class="danger delete-btn" data-id="${activity.id}">
+          Padam
+        </button>
+      </div>
+    `;
+
+    userActivitiesList.appendChild(li);
+  });
+
+  attachActivityButtonsEvents();
+}
+
+// Highlight bila tambah aktiviti
+if (addActivityForm) {
+  addActivityForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    const name = activityNameInput.value.trim();
+    const minutes = parseInt(activityMinutesInput.value.trim(), 10);
+
+    if (!name || !minutes) return;
+
+    try {
+      await addDoc(
+        collection(db, "users", currentUser.uid, "activities"),
+        {
+          name,
+          minutes,
+          completedToday: false,
+          createdAt: serverTimestamp(),
+        }
+      );
+
+      addActivityForm.reset();
+
+      // Highlight effect
+      userActivitiesList.classList.add("highlight");
+      setTimeout(() => userActivitiesList.classList.remove("highlight"), 800);
+
+    } catch (error) {
+      console.error("Gagal tambah aktiviti:", error);
+      alert("Tak berjaya tambah aktiviti.");
+    }
+  });
+}
+
+// Smooth tab transitions
+function showPlannerView() {
+  plannerView.classList.remove("view-hidden");
+  logView.classList.add("view-hidden");
+
+  plannerTabBtn.disabled = true;
+  logTabBtn.disabled = false;
+}
+
+function showLogView() {
+  logView.classList.remove("view-hidden");
+  plannerView.classList.add("view-hidden");
+
+  plannerTabBtn.disabled = false;
+  logTabBtn.disabled = true;
+}
+
+// =========================
+// PART 10 — OFFLINE MODE + ERROR HANDLING
+// =========================
+
+// ===== OFFLINE DETECTION =====
+const offlineBanner = document.getElementById("offlineBanner");
+
+function updateOnlineStatus() {
+  if (navigator.onLine) {
+    offlineBanner.classList.remove("show");
+  } else {
+    offlineBanner.classList.add("show");
+  }
+}
+
+window.addEventListener("online", updateOnlineStatus);
+window.addEventListener("offline", updateOnlineStatus);
+updateOnlineStatus();
+
+// ===== ERROR TOAST =====
+function showErrorToast(message) {
+  const toast = document.createElement("div");
+  toast.className = "error-toast";
+  toast.textContent = message;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.remove();
+  }, 2600);
+}
+
+// ===== SAFE FIRESTORE CALL WRAPPER =====
+async function safeFirestoreCall(callback, errorMessage = "Ralat berlaku.") {
+  try {
+    return await callback();
+  } catch (error) {
+    console.error(errorMessage, error);
+    showErrorToast(errorMessage);
+    return null;
+  }
+}
+
+// ===== PREVENT DOUBLE CLICK =====
+function freezeButton(btn, duration = 600) {
+  btn.disabled = true;
+  setTimeout(() => (btn.disabled = false), duration);
+}
+
+// ===== APPLY TO EXISTING BUTTONS =====
+
+// Example: Save sound button
+if (saveSoundBtn) {
+  saveSoundBtn.addEventListener("click", () => {
+    freezeButton(saveSoundBtn);
+  });
+}
+
+// Example: Start timer button
+if (startTimerBtn) {
+  startTimerBtn.addEventListener("click", () => {
+    freezeButton(startTimerBtn);
+  });
+}
+
+// Example: Add activity form
+if (addActivityForm) {
+  addActivityForm.addEventListener("submit", () => {
+    freezeButton(addActivityForm.querySelector("button[type='submit']"));
+  });
+}
+
+// ===== WRAP FIRESTORE CALLS =====
+
+// Modify add activity
+async function addActivityToFirestore(data) {
+  return safeFirestoreCall(
+    () =>
+      addDoc(
+        collection(db, "users", currentUser.uid, "activities"),
+        data
+      ),
+    "Gagal menyimpan aktiviti."
+  );
+}
+
+// Modify tick update
+async function updateActivityTick(activityRef, data) {
+  return safeFirestoreCall(
+    () => updateDoc(activityRef, data),
+    "Gagal update status tick."
+  );
+}
+
+// Modify delete
+async function deleteActivity(activityRef) {
+  return safeFirestoreCall(
+    () => deleteDoc(activityRef),
+    "Gagal padam aktiviti."
+  );
+}
+
