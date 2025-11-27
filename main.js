@@ -65,15 +65,12 @@ function renderPresets() {
   presets.forEach((p) => {
     const btn = document.createElement("button");
     btn.textContent = `${p.name}`;
-    btn.type = "button";
-    btn.onclick = () => {
-      selectActivity({
-        id: null,
-        name: p.name,
-        minutes: p.minutes,
-        source: "preset"
-      });
-    };
+    btn.onclick = () => selectActivity({
+      id: null,
+      name: p.name,
+      minutes: p.minutes,
+      source: "preset"
+    });
     presetList.appendChild(btn);
   });
 }
@@ -86,16 +83,14 @@ function selectActivity({ id, name, minutes, source }) {
 
   startTimerBtn.disabled = false;
   timerDisplay.textContent = `${String(minutes).padStart(2, "0")}:00`;
-  selectedActivityLabel.textContent = `${source === "preset" ? "[Preset] " : ""}${name} — ${minutes} minit`;
+  selectedActivityLabel.textContent =
+    `${source === "preset" ? "[Preset] " : ""}${name} — ${minutes} minit`;
 }
 
 // TIMER LOGIC (AUDIO FILE METHOD)
 function startTimer() {
   if (!selectedMinutes || selectedMinutes <= 0) return;
-  if (!currentUser) {
-    alert("Sila login dahulu.");
-    return;
-  }
+  if (!currentUser) return alert("Sila login dahulu.");
 
   if (timerInterval) clearInterval(timerInterval);
 
@@ -103,12 +98,10 @@ function startTimer() {
   updateTimerDisplay(totalSeconds);
 
   // ✅ PLAY AUDIO FILE (SILENT + ALARM)
-  const audioFile = `audio/focus${selectedMinutes}min.mp3`;
+  const audioFile = `focus${selectedMinutes}min.mp3`; // <-- FILE DI ROOT
   audio = new Audio(audioFile);
   audio.volume = 1.0;
-  audio.play().catch((err) => {
-    console.warn("Audio play blocked:", err);
-  });
+  audio.play().catch(err => console.warn("Audio blocked:", err));
 
   timerInterval = setInterval(async () => {
     totalSeconds--;
@@ -130,7 +123,8 @@ function startTimer() {
 function updateTimerDisplay(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
-  timerDisplay.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  timerDisplay.textContent =
+    `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 // FIRESTORE: LOG SESSION
@@ -139,12 +133,12 @@ async function logFocusSession() {
     await addDoc(collection(db, "focusLogs"), {
       uid: currentUser.uid,
       activityId: selectedActivityId || null,
-      activityName: selectedActivityName || "Tidak diketahui",
+      activityName: selectedActivityName,
       minutes: selectedMinutes,
       createdAt: serverTimestamp()
     });
   } catch (err) {
-    console.error("Error log focus session:", err);
+    console.error("Error log focus:", err);
   }
 }
 
@@ -167,14 +161,14 @@ async function loadUserActivities(user) {
     }
 
     userActivities.innerHTML = "";
-    snap.forEach((docSnap) => {
+    snap.forEach(docSnap => {
       const data = docSnap.data();
       const li = document.createElement("li");
 
-      const titleSpan = document.createElement("span");
-      titleSpan.textContent = `${data.name} — ${data.minutes} minit`;
-      titleSpan.style.cursor = "pointer";
-      titleSpan.onclick = () =>
+      const title = document.createElement("span");
+      title.textContent = `${data.name} — ${data.minutes} minit`;
+      title.style.cursor = "pointer";
+      title.onclick = () =>
         selectActivity({
           id: docSnap.id,
           name: data.name,
@@ -191,7 +185,7 @@ async function loadUserActivities(user) {
       deleteBtn.style.background = "#ef4444";
       deleteBtn.onclick = () => onDeleteActivity(docSnap.id);
 
-      li.appendChild(titleSpan);
+      li.appendChild(title);
       li.appendChild(editBtn);
       li.appendChild(deleteBtn);
 
@@ -199,7 +193,6 @@ async function loadUserActivities(user) {
     });
   } catch (err) {
     console.error("Error load activities:", err);
-    userActivities.innerHTML = "<li>Gagal load aktiviti.</li>";
   }
 }
 
@@ -212,19 +205,17 @@ async function onEditActivity(id, data) {
   if (newMinutesRaw === null) return;
 
   const newMinutes = parseInt(newMinutesRaw, 10);
-  if (!newName.trim() || !newMinutes || newMinutes <= 0) {
-    alert("Input tidak sah.");
-    return;
-  }
+  if (!newName.trim() || !newMinutes || newMinutes <= 0)
+    return alert("Input tidak sah.");
 
   try {
     await updateDoc(doc(db, "restActivities", id), {
       name: newName.trim(),
       minutes: newMinutes
     });
-    await loadUserActivities(currentUser);
+    loadUserActivities(currentUser);
   } catch (err) {
-    console.error("Error update activity:", err);
+    console.error("Error update:", err);
   }
 }
 
@@ -234,20 +225,17 @@ async function onDeleteActivity(id) {
 
   try {
     await deleteDoc(doc(db, "restActivities", id));
-    await loadUserActivities(currentUser);
+    loadUserActivities(currentUser);
   } catch (err) {
-    console.error("Error delete activity:", err);
+    console.error("Error delete:", err);
   }
 }
 
 // LOAD SOUND SETTING
 async function loadUserSound(user) {
   try {
-    const ref = doc(db, "userSettings", user.uid);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      soundSelect.value = snap.data().sound || "beep";
-    }
+    const snap = await getDoc(doc(db, "userSettings", user.uid));
+    if (snap.exists()) soundSelect.value = snap.data().sound;
   } catch (err) {
     console.error("Error load sound:", err);
   }
