@@ -37,33 +37,50 @@
     <!-- APP SECTION -->
     <section id="appSection" style="display:none;">
 
-      <h2>Preset Aktiviti</h2>
-      <div id="presetList"></div>
+      <nav>
+        <button id="plannerTabBtn" type="button">Planner</button>
+        <button id="logTabBtn" type="button">Log Fokus</button>
+      </nav>
 
-      <h2>Tambah Aktiviti Sendiri</h2>
-      <form id="addActivityForm">
-        <input id="activityName" type="text" placeholder="Nama aktiviti" required />
-        <input id="activityMinutes" type="number" placeholder="Minit fokus" required />
-        <button type="submit">Tambah Aktiviti</button>
-      </form>
+      <!-- PLANNER VIEW -->
+      <div id="plannerView">
 
-      <h2>Senarai Aktiviti Anda</h2>
-      <ul id="userActivities"></ul>
+        <h2>Preset Aktiviti</h2>
+        <div id="presetList"></div>
 
-      <h2>Pilihan Bunyi</h2>
-      <div id="soundControls">
-        <select id="soundSelect">
-          <option value="beep">Beep</option>
-          <option value="gong">Gong</option>
-          <option value="nature">Nature</option>
-        </select>
-        <button id="saveSoundBtn" type="button">Simpan Pilihan</button>
+        <h2>Tambah Aktiviti Sendiri</h2>
+        <form id="addActivityForm">
+          <input id="activityName" type="text" placeholder="Nama aktiviti" required />
+          <input id="activityMinutes" type="number" placeholder="Minit fokus" required />
+          <button type="submit">Tambah Aktiviti</button>
+        </form>
+
+        <h2>Senarai Aktiviti Anda</h2>
+        <ul id="userActivities"></ul>
+
+        <h2>Pilihan Bunyi</h2>
+        <div id="soundControls">
+          <select id="soundSelect">
+            <option value="beep">Beep</option>
+            <option value="gong">Gong</option>
+            <option value="nature">Nature</option>
+          </select>
+          <button id="saveSoundBtn" type="button">Simpan Pilihan</button>
+        </div>
+
+        <h2>Timer</h2>
+        <div id="selectedActivityLabel">Tiada aktiviti dipilih.</div>
+        <div id="timerDisplay">00:00</div>
+        <button id="startTimerBtn" disabled>Start</button>
+
       </div>
 
-      <h2>Timer</h2>
-      <div id="selectedActivityLabel">Tiada aktiviti dipilih.</div>
-      <div id="timerDisplay">00:00</div>
-      <button id="startTimerBtn" disabled>Start</button>
+      <!-- LOG VIEW -->
+      <div id="logView" style="display:none;">
+        <h2>Log Fokus Anda</h2>
+        <p id="logSummary"></p>
+        <ul id="focusLogList"></ul>
+      </div>
 
     </section>
 
