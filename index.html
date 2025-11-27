@@ -4,8 +4,14 @@
   <meta charset="UTF-8" />
   <title>Stress — Timing Planner PWA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- PWA -->
   <link rel="manifest" href="manifest.json" />
+
+  <!-- Styles -->
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 
@@ -114,6 +120,8 @@
 
   <!-- ✅ SCRIPT IMPORT -->
   <script type="module" src="main.js"></script>
+
+  <!-- ✅ SERVICE WORKER -->
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js");
