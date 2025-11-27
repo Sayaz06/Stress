@@ -47,9 +47,10 @@ const saveSoundBtn = document.getElementById("saveSoundBtn");
 // STATE
 let selectedMinutes = 0;
 let selectedActivityName = "";
-let selectedActivityId = null; // untuk log & future features
+let selectedActivityId = null;
 let timerInterval = null;
 let currentUser = null;
+let audio = null;
 
 // PRESET ACTIVITIES
 const presets = [
@@ -77,17 +78,18 @@ function renderPresets() {
   });
 }
 
-// SELECT ACTIVITY (set minutes & enable start)
+// SELECT ACTIVITY
 function selectActivity({ id, name, minutes, source }) {
   selectedMinutes = minutes;
   selectedActivityName = name;
   selectedActivityId = id;
+
   startTimerBtn.disabled = false;
   timerDisplay.textContent = `${String(minutes).padStart(2, "0")}:00`;
   selectedActivityLabel.textContent = `${source === "preset" ? "[Preset] " : ""}${name} — ${minutes} minit`;
 }
 
-// TIMER LOGIC
+// TIMER LOGIC (AUDIO FILE METHOD)
 function startTimer() {
   if (!selectedMinutes || selectedMinutes <= 0) return;
   if (!currentUser) {
@@ -95,11 +97,18 @@ function startTimer() {
     return;
   }
 
-  // Prevent multiple timers
   if (timerInterval) clearInterval(timerInterval);
 
   let totalSeconds = selectedMinutes * 60;
   updateTimerDisplay(totalSeconds);
+
+  // ✅ PLAY AUDIO FILE (SILENT + ALARM)
+  const audioFile = `audio/focus${selectedMinutes}min.mp3`;
+  audio = new Audio(audioFile);
+  audio.volume = 1.0;
+  audio.play().catch((err) => {
+    console.warn("Audio play blocked:", err);
+  });
 
   timerInterval = setInterval(async () => {
     totalSeconds--;
@@ -108,10 +117,8 @@ function startTimer() {
       clearInterval(timerInterval);
       timerInterval = null;
       updateTimerDisplay(0);
-      playSound();
-      alert("Fokus selesai!");
 
-      // Simpan log ke Firestore
+      alert("Fokus selesai!");
       await logFocusSession();
       return;
     }
@@ -126,26 +133,7 @@ function updateTimerDisplay(totalSeconds) {
   timerDisplay.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-// AUDIO: guna pilihan user
-function playSound() {
-  const sound = soundSelect.value;
-  let url = "";
-
-  if (sound === "beep") {
-    url = "https://actions.google.com/sounds/v1/alarms/beep_short.ogg";
-  } else if (sound === "gong") {
-    url = "https://actions.google.com/sounds/v1/alarms/temple_bell.ogg";
-  } else if (sound === "nature") {
-    url = "https://actions.google.com/sounds/v1/ambiences/forest_nature.ogg";
-  } else {
-    url = "https://actions.google.com/sounds/v1/alarms/beep_short.ogg";
-  }
-
-  const audio = new Audio(url);
-  audio.play();
-}
-
-// FIRESTORE: LOG FOCUS SESSION
+// FIRESTORE: LOG SESSION
 async function logFocusSession() {
   try {
     await addDoc(collection(db, "focusLogs"), {
@@ -155,13 +143,12 @@ async function logFocusSession() {
       minutes: selectedMinutes,
       createdAt: serverTimestamp()
     });
-    console.log("Focus session logged");
   } catch (err) {
     console.error("Error log focus session:", err);
   }
 }
 
-// FIRESTORE: LOAD USER ACTIVITIES
+// LOAD ACTIVITIES
 async function loadUserActivities(user) {
   userActivities.innerHTML = "<li>Loading...</li>";
 
@@ -197,14 +184,10 @@ async function loadUserActivities(user) {
 
       const editBtn = document.createElement("button");
       editBtn.textContent = "Edit";
-      editBtn.type = "button";
-      editBtn.style.marginLeft = "0.5rem";
       editBtn.onclick = () => onEditActivity(docSnap.id, data);
 
       const deleteBtn = document.createElement("button");
       deleteBtn.textContent = "Delete";
-      deleteBtn.type = "button";
-      deleteBtn.style.marginLeft = "0.5rem";
       deleteBtn.style.background = "#ef4444";
       deleteBtn.onclick = () => onDeleteActivity(docSnap.id);
 
@@ -223,9 +206,11 @@ async function loadUserActivities(user) {
 // EDIT ACTIVITY
 async function onEditActivity(id, data) {
   const newName = prompt("Nama aktiviti baru:", data.name);
-  if (newName === null) return; // cancel
+  if (newName === null) return;
+
   const newMinutesRaw = prompt("Minit fokus baru:", data.minutes);
   if (newMinutesRaw === null) return;
+
   const newMinutes = parseInt(newMinutesRaw, 10);
   if (!newName.trim() || !newMinutes || newMinutes <= 0) {
     alert("Input tidak sah.");
@@ -237,70 +222,60 @@ async function onEditActivity(id, data) {
       name: newName.trim(),
       minutes: newMinutes
     });
-    if (currentUser) await loadUserActivities(currentUser);
+    await loadUserActivities(currentUser);
   } catch (err) {
     console.error("Error update activity:", err);
-    alert("Gagal update aktiviti.");
   }
 }
 
 // DELETE ACTIVITY
 async function onDeleteActivity(id) {
-  const confirmDelete = confirm("Padam aktiviti ini?");
-  if (!confirmDelete) return;
+  if (!confirm("Padam aktiviti ini?")) return;
 
   try {
     await deleteDoc(doc(db, "restActivities", id));
-    if (currentUser) await loadUserActivities(currentUser);
+    await loadUserActivities(currentUser);
   } catch (err) {
     console.error("Error delete activity:", err);
-    alert("Gagal padam aktiviti.");
   }
 }
 
-// FIRESTORE: LOAD USER SOUND SETTING
+// LOAD SOUND SETTING
 async function loadUserSound(user) {
   try {
     const ref = doc(db, "userSettings", user.uid);
     const snap = await getDoc(ref);
     if (snap.exists()) {
-      const data = snap.data();
-      if (data.sound) {
-        soundSelect.value = data.sound;
-      }
-    } else {
-      soundSelect.value = "beep";
+      soundSelect.value = snap.data().sound || "beep";
     }
   } catch (err) {
-    console.error("Error load sound setting:", err);
-    soundSelect.value = "beep";
+    console.error("Error load sound:", err);
   }
 }
 
-// FIRESTORE: SAVE USER SOUND SETTING
+// SAVE SOUND SETTING
 saveSoundBtn.addEventListener("click", async () => {
-  if (!currentUser) {
-    alert("Sila login dahulu.");
-    return;
-  }
+  if (!currentUser) return alert("Sila login dahulu.");
 
-  const sound = soundSelect.value;
   try {
-    await setDoc(doc(db, "userSettings", currentUser.uid), { sound }, { merge: true });
+    await setDoc(doc(db, "userSettings", currentUser.uid), {
+      sound: soundSelect.value
+    });
     alert("Pilihan bunyi disimpan.");
   } catch (err) {
     console.error("Error save sound:", err);
-    alert("Gagal simpan pilihan bunyi.");
   }
 });
 
 // AUTH STATE
 onAuthStateChanged(auth, (user) => {
   currentUser = user;
+
   if (user) {
     userInfo.textContent = `Logged in as: ${user.email}`;
     authSection.style.display = "none";
     appSection.style.display = "block";
+
     renderPresets();
     loadUserActivities(user);
     loadUserSound(user);
@@ -308,26 +283,20 @@ onAuthStateChanged(auth, (user) => {
     userInfo.textContent = "Not logged in";
     authSection.style.display = "block";
     appSection.style.display = "none";
-    userActivities.innerHTML = "";
-    timerDisplay.textContent = "00:00";
-    selectedActivityLabel.textContent = "Tiada aktiviti dipilih.";
-    startTimerBtn.disabled = true;
-    selectedActivityId = null;
-    selectedActivityName = "";
   }
 });
 
 // SIGNUP
 signupForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const email = signupForm.signupEmail.value.trim();
-  const password = signupForm.signupPassword.value;
-
   try {
-    await createUserWithEmailAndPassword(auth, email, password);
+    await createUserWithEmailAndPassword(
+      auth,
+      signupForm.signupEmail.value,
+      signupForm.signupPassword.value
+    );
     signupForm.reset();
   } catch (err) {
-    console.error("Signup error:", err);
     alert(err.message);
   }
 });
@@ -335,26 +304,22 @@ signupForm.addEventListener("submit", async (e) => {
 // LOGIN
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const email = loginForm.loginEmail.value.trim();
-  const password = loginForm.loginPassword.value;
-
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    await signInWithEmailAndPassword(
+      auth,
+      loginForm.loginEmail.value,
+      loginForm.loginPassword.value
+    );
     loginForm.reset();
   } catch (err) {
-    console.error("Login error:", err);
     alert(err.message);
   }
 });
 
 // LOGOUT
 logoutBtn.addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-  } catch (err) {
-    console.error("Logout error:", err);
-  }
+  await signOut(auth);
 });
 
-// START TIMER BUTTON
+// START TIMER
 startTimerBtn.addEventListener("click", startTimer);
