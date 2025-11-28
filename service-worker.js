@@ -1,5 +1,5 @@
 /* ============================================================
-   service-worker.js — FINAL VERSION
+   service-worker.js — FINAL (audio sampai 10 min sahaja)
 ============================================================ */
 
 const CACHE = "stress-cache-v18";
@@ -12,18 +12,19 @@ const FILES = [
   "./firebase.js",
   "./manifest.json",
 
-  // ✅ Bunyi fokus (silent + alarm)
+  // Audio fokus 1–10 minit
   "./sounds/focus1min.mp3",
+  "./sounds/focus2min.mp3",
+  "./sounds/focus3min.mp3",
+  "./sounds/focus4min.mp3",
   "./sounds/focus5min.mp3",
-  "./sounds/focus10min.mp3",
-  "./sounds/focus15min.mp3",
-  "./sounds/focus20min.mp3",
-  "./sounds/focus25min.mp3",
-  "./sounds/focus30min.mp3",
-  "./sounds/focus45min.mp3"
+  "./sounds/focus6min.mp3",
+  "./sounds/focus7min.mp3",
+  "./sounds/focus8min.mp3",
+  "./sounds/focus9min.mp3",
+  "./sounds/focus10min.mp3"
 ];
 
-// ✅ Install SW & cache semua file
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then((cache) => {
@@ -32,7 +33,6 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// ✅ Fetch handler — offline fallback
 self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(event.request).then((cached) => {
