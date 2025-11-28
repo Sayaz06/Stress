@@ -2,7 +2,7 @@
    service-worker.js — FINAL VERSION
 ============================================================ */
 
-const CACHE = "stress-cache-v16";
+const CACHE = "stress-cache-v18";
 
 const FILES = [
   "./",
