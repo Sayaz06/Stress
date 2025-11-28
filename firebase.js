@@ -1,5 +1,6 @@
 /* ============================================================
    firebase.js — FINAL VERSION
+   (Guna config sebenar yang ad bagi)
 ============================================================ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
@@ -17,6 +18,9 @@ const firebaseConfig = {
   measurementId: "G-X3TVBZMW7W"
 };
 
+// ✅ Initialize Firebase
 export const app = initializeApp(firebaseConfig);
+
+// ✅ Auth & Firestore
 export const auth = getAuth(app);
 export const db = getFirestore(app);
