@@ -1,3 +1,7 @@
+// ============================================================
+// main.js — PART 1 (IMPORTS + VARIABLES)
+// ============================================================
+
 import { auth, db } from "./firebase.js";
 import {
   createUserWithEmailAndPassword,
@@ -39,7 +43,6 @@ const timerDisplay = document.getElementById("timerDisplay");
 const startTimerBtn = document.getElementById("startTimerBtn");
 const selectedActivityLabel = document.getElementById("selectedActivityLabel");
 
-// PLAN D UI
 const plannerTabBtn = document.getElementById("plannerTabBtn");
 const logTabBtn = document.getElementById("logTabBtn");
 const plannerView = document.getElementById("plannerView");
@@ -50,6 +53,7 @@ const logFilters = document.getElementById("logFilters");
 const weeklyStatsList = document.getElementById("weeklyStatsList");
 const weeklyChartCanvas = document.getElementById("weeklyChart");
 
+// GLOBAL STATE
 let selectedMinutes = 0;
 let selectedActivityName = "";
 let selectedActivityId = null;
@@ -58,6 +62,10 @@ let currentUser = null;
 let audio = null;
 let currentLogRange = "today";
 let weeklyChart = null;
+
+// ============================================================
+// main.js — PART 2 (PRESETS + SELECT ACTIVITY + AUDIO SYSTEM)
+// ============================================================
 
 // PRESETS
 const presets = [
@@ -70,7 +78,7 @@ function renderPresets() {
   presetList.innerHTML = "";
   presets.forEach((p) => {
     const btn = document.createElement("button");
-    btn.textContent = `${p.name}`;
+    btn.textContent = p.name;
     btn.onclick = () =>
       selectActivity({
         id: null,
@@ -89,50 +97,43 @@ function selectActivity({ id, name, minutes, source }) {
 
   startTimerBtn.disabled = false;
   timerDisplay.textContent = `${String(minutes).padStart(2, "0")}:00`;
-  selectedActivityLabel.textContent = `${
-    source === "preset" ? "[Preset] " : ""
-  }${name} — ${minutes} minit`;
+
+  selectedActivityLabel.textContent =
+    `${source === "preset" ? "[Preset] " : ""}${name} — ${minutes} minit`;
 }
 
+// ✅ AUDIO SYSTEM (ROOT FOLDER, 1–45 MINIT)
 function getAudioFileForMinutes(minutes) {
   if (!minutes || minutes <= 0) return null;
 
-  // Buat masa ini hanya ada focus1min.mp3 hingga focus10min.mp3
-  if (minutes <= 10) {
-    return `./sounds/focus${minutes}min.mp3`;
-  }
-
-  // Fallback sementara untuk > 10 minit
-  // Boleh di-upgrade bila ad dah tambah sehingga 45 minit
-  return "./sounds/focus10min.mp3";
+  // Fail exact: focus1min.mp3 hingga focus45min.mp3
+  return `./focus${minutes}min.mp3`;
 }
 
+// ✅ START TIMER
 function startTimer() {
   if (!selectedMinutes || selectedMinutes <= 0) return;
-  if (!currentUser) {
-    alert("Sila login dahulu.");
-    return;
-  }
+  if (!currentUser) return alert("Sila login dahulu.");
 
   if (timerInterval) clearInterval(timerInterval);
+
   if (audio) {
     try {
       audio.pause();
       audio.currentTime = 0;
-    } catch (e) {
-      console.warn("Gagal reset audio lama:", e);
-    }
+    } catch (e) {}
   }
 
   let totalSeconds = selectedMinutes * 60;
   updateTimerDisplay(totalSeconds);
 
   const audioFile = getAudioFileForMinutes(selectedMinutes);
-  if (audioFile) {
-    audio = new Audio(audioFile);
-    audio.volume = 1.0;
-    audio.play().catch((err) => console.warn("Audio blocked:", err));
-  }
+  audio = new Audio(audioFile);
+  audio.volume = 1.0;
+
+  audio.play().catch(() => {
+    console.warn("Audio gagal load, tapi timer tetap jalan.");
+  });
 
   timerInterval = setInterval(async () => {
     totalSeconds--;
@@ -154,11 +155,15 @@ function startTimer() {
 function updateTimerDisplay(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
-  timerDisplay.textContent = `${String(m).padStart(2, "0")}:${String(
-    s
-  ).padStart(2, "0")}`;
+  timerDisplay.textContent =
+    `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+// ============================================================
+// main.js — PART 3 (LOGGING + FIRESTORE)
+// ============================================================
+
+// ✅ Simpan log fokus bila timer habis
 async function logFocusSession() {
   try {
     await addDoc(collection(db, "focusLogs"), {
@@ -173,6 +178,7 @@ async function logFocusSession() {
   }
 }
 
+// ✅ Load log ikut user + range (today / 7 / 30 / all)
 async function loadFocusLogs(user) {
   focusLogList.innerHTML = "<li>Loading...</li>";
   logSummary.textContent = "";
@@ -226,12 +232,14 @@ async function loadFocusLogs(user) {
     renderSummary(logs);
     renderWeeklyStats(logs);
     renderWeeklyChart(logs);
+
   } catch (err) {
     console.error("Error load logs:", err);
     focusLogList.innerHTML = "<li>Gagal load log fokus.</li>";
   }
 }
 
+// ✅ Render list log
 function renderLogList(logs) {
   focusLogList.innerHTML = "";
 
@@ -254,6 +262,7 @@ function renderLogList(logs) {
   });
 }
 
+// ✅ Summary total minit
 function renderSummary(logs) {
   const total = logs.reduce((sum, l) => sum + (l.minutes || 0), 0);
 
@@ -264,9 +273,15 @@ function renderSummary(logs) {
     all: "Semua"
   };
 
-  logSummary.textContent = `${label[currentLogRange]}: ${total} minit fokus direkodkan.`;
+  logSummary.textContent =
+    `${label[currentLogRange]}: ${total} minit fokus direkodkan.`;
 }
 
+// ============================================================
+// main.js — PART 4 (WEEKLY STATS + CHART + FILTERS + TABS)
+// ============================================================
+
+// ✅ Weekly Stats
 function renderWeeklyStats(logs) {
   weeklyStatsList.innerHTML = "";
 
@@ -312,6 +327,7 @@ function renderWeeklyStats(logs) {
   `;
 }
 
+// ✅ Weekly Chart (7 hari)
 function renderWeeklyChart(logs) {
   const now = new Date();
   const dailyTotals = {};
@@ -356,24 +372,19 @@ function renderWeeklyChart(logs) {
     options: {
       responsive: true,
       plugins: {
-        legend: { display: false },
-        title: {
-          display: false
-        }
+        legend: { display: false }
       },
       scales: {
         y: {
           beginAtZero: true,
-          ticks: {
-            stepSize: 10
-          }
+          ticks: { stepSize: 10 }
         }
       }
     }
   });
 }
 
-// FILTER BUTTONS
+// ✅ Filter Buttons
 logFilters.querySelectorAll("button").forEach((btn) => {
   btn.addEventListener("click", () => {
     currentLogRange = btn.dataset.range;
@@ -381,7 +392,7 @@ logFilters.querySelectorAll("button").forEach((btn) => {
   });
 });
 
-// TAB SWITCHING
+// ✅ Tab Switching
 function showPlanner() {
   plannerView.style.display = "block";
   logView.style.display = "none";
@@ -401,7 +412,11 @@ function showLog() {
 plannerTabBtn.addEventListener("click", showPlanner);
 logTabBtn.addEventListener("click", showLog);
 
-// ADD ACTIVITY
+// ============================================================
+// main.js — PART 5 (ACTIVITIES CRUD)
+// ============================================================
+
+// ✅ ADD ACTIVITY
 addActivityForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -436,7 +451,7 @@ addActivityForm.addEventListener("submit", async (e) => {
   }
 });
 
-// EDIT ACTIVITY
+// ✅ EDIT ACTIVITY
 async function onEditActivity(id, data) {
   const newName = prompt("Nama aktiviti baru:", data.name);
   if (newName === null) return;
@@ -459,7 +474,7 @@ async function onEditActivity(id, data) {
   }
 }
 
-// DELETE ACTIVITY
+// ✅ DELETE ACTIVITY
 async function onDeleteActivity(id) {
   if (!confirm("Padam aktiviti ini?")) return;
 
@@ -471,7 +486,7 @@ async function onDeleteActivity(id) {
   }
 }
 
-// LOAD ACTIVITIES
+// ✅ LOAD ACTIVITIES
 async function loadUserActivities(user) {
   userActivities.innerHTML = "<li>Loading...</li>";
 
@@ -525,7 +540,11 @@ async function loadUserActivities(user) {
   }
 }
 
-// AUTH STATE
+// ============================================================
+// main.js — PART 6 (AUTH + THEME TOGGLE + FINAL LISTENERS)
+// ============================================================
+
+// ✅ AUTH STATE LISTENER
 onAuthStateChanged(auth, (user) => {
   currentUser = user;
 
@@ -544,7 +563,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// SIGNUP
+// ✅ SIGNUP
 signupForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
@@ -559,7 +578,7 @@ signupForm.addEventListener("submit", async (e) => {
   }
 });
 
-// LOGIN
+// ✅ LOGIN
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
@@ -574,15 +593,15 @@ loginForm.addEventListener("submit", async (e) => {
   }
 });
 
-// LOGOUT
+// ✅ LOGOUT
 logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
 });
 
-// START TIMER
+// ✅ START TIMER BUTTON
 startTimerBtn.addEventListener("click", startTimer);
 
-// THEME TOGGLE
+// ✅ THEME TOGGLE
 const themeToggle = document.getElementById("themeToggle");
 
 // Load saved theme
