@@ -2,7 +2,7 @@
 // service-worker.js — FINAL VERSION (cache audio 1–45 min)
 // ============================================================
 
-const CACHE = "stress-cache-v21";
+const CACHE = "stress-cache-v23";
 
 // ✅ Auto-generate senarai audio 1–45 minit
 const audioFiles = Array.from({ length: 45 }, (_, i) => `./focus${i + 1}min.mp3`);
