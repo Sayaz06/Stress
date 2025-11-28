@@ -1,17 +1,42 @@
-const CACHE = "stress-cache-v15";
+/* ============================================================
+   service-worker.js — FINAL VERSION
+============================================================ */
+
+const CACHE = "stress-cache-v16";
+
 const FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./main.js",
   "./firebase.js",
-  "./manifest.json"
+  "./manifest.json",
+
+  // ✅ Bunyi fokus (silent + alarm)
+  "./sounds/focus1min.mp3",
+  "./sounds/focus5min.mp3",
+  "./sounds/focus10min.mp3",
+  "./sounds/focus15min.mp3",
+  "./sounds/focus20min.mp3",
+  "./sounds/focus25min.mp3",
+  "./sounds/focus30min.mp3",
+  "./sounds/focus45min.mp3"
 ];
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+// ✅ Install SW & cache semua file
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => {
+      return cache.addAll(FILES);
+    })
+  );
 });
 
-self.addEventListener("fetch", (e) => {
-  e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request)));
+// ✅ Fetch handler — offline fallback
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      return cached || fetch(event.request);
+    })
+  );
 });
