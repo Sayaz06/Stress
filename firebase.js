@@ -1,7 +1,12 @@
+/* ============================================================
+   firebase.js — FINAL VERSION
+============================================================ */
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAeaaPQnLkSlUshc735_CwUH35gxLRsdbY",
   authDomain: "mytimingplanner-8bccb.firebaseapp.com",
