@@ -1,8 +1,11 @@
-/* ============================================================
-   service-worker.js — FINAL (audio sampai 10 min sahaja)
-============================================================ */
+// ============================================================
+// service-worker.js — FINAL VERSION (cache audio 1–45 min)
+// ============================================================
 
-const CACHE = "stress-cache-v18";
+const CACHE = "stress-cache-v20";
+
+// ✅ Auto-generate senarai audio 1–45 minit
+const audioFiles = Array.from({ length: 45 }, (_, i) => `./focus${i + 1}min.mp3`);
 
 const FILES = [
   "./",
@@ -11,28 +14,17 @@ const FILES = [
   "./main.js",
   "./firebase.js",
   "./manifest.json",
-
-  // Audio fokus 1–10 minit
-  "./sounds/focus1min.mp3",
-  "./sounds/focus2min.mp3",
-  "./sounds/focus3min.mp3",
-  "./sounds/focus4min.mp3",
-  "./sounds/focus5min.mp3",
-  "./sounds/focus6min.mp3",
-  "./sounds/focus7min.mp3",
-  "./sounds/focus8min.mp3",
-  "./sounds/focus9min.mp3",
-  "./sounds/focus10min.mp3"
+  ...audioFiles
 ];
 
+// ✅ INSTALL — cache semua file
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => {
-      return cache.addAll(FILES);
-    })
+    caches.open(CACHE).then((cache) => cache.addAll(FILES))
   );
 });
 
+// ✅ FETCH — cache-first
 self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(event.request).then((cached) => {
