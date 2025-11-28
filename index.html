@@ -4,32 +4,22 @@
   <meta charset="UTF-8" />
   <title>Stress — Timing Planner PWA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- PWA -->
   <link rel="manifest" href="manifest.json" />
-
-  <!-- Styles -->
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 
 <body>
 
-  <!-- ✅ HEADER -->
   <header>
     <h1>Stress — Timing Planner</h1>
     <p id="userInfo">Checking auth...</p>
     <button id="logoutBtn">Logout</button>
   </header>
 
-  <!-- ✅ OFFLINE BANNER -->
-  <div id="offlineBanner">Anda sedang offline — beberapa fungsi mungkin tidak berfungsi.</div>
-
   <main>
 
-    <!-- ✅ AUTH SECTION -->
+    <!-- AUTH SECTION -->
     <section id="authSection">
       <h2>Signup</h2>
       <form id="signupForm">
@@ -46,16 +36,15 @@
       </form>
     </section>
 
-    <!-- ✅ APP SECTION -->
+    <!-- APP SECTION -->
     <section id="appSection" style="display:none;">
 
-      <!-- ✅ TAB NAVIGATION -->
       <nav>
         <button id="plannerTabBtn" type="button">Planner</button>
         <button id="logTabBtn" type="button">Log Fokus</button>
       </nav>
 
-      <!-- ✅ PLANNER VIEW -->
+      <!-- PLANNER VIEW -->
       <div id="plannerView">
 
         <h2>Preset Aktiviti</h2>
@@ -71,8 +60,7 @@
         <h2>Senarai Aktiviti Anda</h2>
         <ul id="userActivities"></ul>
 
-        <!-- ✅ TIADA LAGI PILIHAN BUNYI -->
-        <!-- (Bahagian ini dibuang sepenuhnya) -->
+        <!-- Pilihan bunyi lama DIBUANG di sini -->
 
         <h2>Timer</h2>
         <div id="selectedActivityLabel">Tiada aktiviti dipilih.</div>
@@ -81,9 +69,16 @@
 
       </div>
 
-      <!-- ✅ LOG VIEW -->
+      <!-- LOG VIEW -->
       <div id="logView" style="display:none;">
         <h2>Log Fokus Anda</h2>
+
+        <div id="logFilters">
+          <button data-range="today">Hari Ini</button>
+          <button data-range="7">7 Hari</button>
+          <button data-range="30">30 Hari</button>
+          <button data-range="all">Semua</button>
+        </div>
 
         <p id="logSummary"></p>
         <ul id="focusLogList"></ul>
@@ -101,18 +96,14 @@
 
   </main>
 
-  <!-- ✅ DARK MODE BUTTON -->
+  <!-- DARK MODE BUTTON -->
   <button id="themeToggle">Dark Mode</button>
 
-  <!-- ✅ SCRIPT IMPORT -->
   <script type="module" src="main.js"></script>
-
-  <!-- ✅ SERVICE WORKER -->
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js");
     }
   </script>
-
 </body>
 </html>
