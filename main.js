@@ -1,21 +1,17 @@
 /* ============================================================
-   PART 1 — FIREBASE IMPORTS + INIT
+   PART 1 — FIREBASE IMPORTS (GUNA firebase.js)
 ============================================================ */
 
-import {
-  initializeApp
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { app, auth, db } from "./firebase.js";
 
 import {
-  getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
 
 import {
-  getFirestore,
   collection,
   doc,
   addDoc,
@@ -26,20 +22,7 @@ import {
   query,
   orderBy,
   serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "YOUR_APP_ID"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore();
+} from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
 /* ============================================================
    PART 2 — DOM ELEMENTS
@@ -64,14 +47,10 @@ const activityNameInput = document.getElementById("activityName");
 const activityMinutesInput = document.getElementById("activityMinutes");
 const userActivitiesList = document.getElementById("userActivities");
 
-const soundSelect = document.getElementById("soundSelect");
-const saveSoundBtn = document.getElementById("saveSoundBtn");
-
 const selectedActivityLabel = document.getElementById("selectedActivityLabel");
 const timerDisplay = document.getElementById("timerDisplay");
 const startTimerBtn = document.getElementById("startTimerBtn");
 
-const logFilters = document.getElementById("logFilters");
 const focusLogList = document.getElementById("focusLogList");
 const logSummary = document.getElementById("logSummary");
 
@@ -102,12 +81,9 @@ function setAppForUser(user) {
     authSection.style.display = "none";
     appSection.style.display = "block";
 
-    // Start listeners
     listenToUserActivities();
     listenToFocusLog();
-    loadUserSoundPreference();
     autoResetDailyTicks();
-
     showPlannerView();
   } else {
     currentUser = null;
@@ -120,6 +96,7 @@ function setAppForUser(user) {
     focusLogList.innerHTML = "";
     logSummary.textContent = "";
     weeklyStatsList.innerHTML = "";
+
     if (weeklyChartInstance) {
       weeklyChartInstance.destroy();
       weeklyChartInstance = null;
@@ -134,7 +111,6 @@ signupForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = signupForm.signupEmail.value.trim();
   const password = signupForm.signupPassword.value.trim();
-
   if (!email || !password) return;
 
   try {
@@ -150,7 +126,6 @@ loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = loginForm.loginEmail.value.trim();
   const password = loginForm.loginPassword.value.trim();
-
   if (!email || !password) return;
 
   try {
@@ -213,15 +188,18 @@ logTabBtn.addEventListener("click", showLogView);
 ============================================================ */
 
 const presetActivities = [
-  { name: "Belajar", minutes: 25 },
-  { name: "Kerja fokus", minutes: 50 },
-  { name: "Rehat pendek", minutes: 10 },
-  { name: "Rehat panjang", minutes: 20 }
+  { name: "Fokus 1 minit", minutes: 1 },
+  { name: "Fokus 5 minit", minutes: 5 },
+  { name: "Fokus 10 minit", minutes: 10 },
+  { name: "Fokus 15 minit", minutes: 15 },
+  { name: "Fokus 20 minit", minutes: 20 },
+  { name: "Fokus 25 minit", minutes: 25 },
+  { name: "Fokus 30 minit", minutes: 30 },
+  { name: "Fokus 45 minit", minutes: 45 }
 ];
 
 function renderPresetActivities() {
   presetList.innerHTML = "";
-
   presetActivities.forEach((p) => {
     const btn = document.createElement("button");
     btn.textContent = `${p.name} (${p.minutes} min)`;
@@ -236,7 +214,6 @@ function renderPresetActivities() {
     presetList.appendChild(btn);
   });
 }
-
 renderPresetActivities();
 
 /* ============================================================
@@ -268,14 +245,12 @@ function listenToUserActivities() {
 
 function renderUserActivities(activities) {
   userActivitiesList.innerHTML = "";
-
   const fragment = document.createDocumentFragment();
 
   activities.forEach((a) => {
     const li = document.createElement("li");
 
     const isDone = !!a.completedToday;
-
     const textClass = isDone ? "activity-done" : "";
     const doneText = isDone ? `<div class="activity-done-text">Selesai hari ini</div>` : "";
 
@@ -297,7 +272,6 @@ function renderUserActivities(activities) {
   });
 
   userActivitiesList.appendChild(fragment);
-
   attachActivityButtonsEvents();
 }
 
@@ -307,7 +281,6 @@ addActivityForm.addEventListener("submit", async (e) => {
 
   const name = activityNameInput.value.trim();
   const minutes = parseInt(activityMinutesInput.value.trim(), 10);
-
   if (!name || !minutes) return;
 
   try {
@@ -318,7 +291,6 @@ addActivityForm.addEventListener("submit", async (e) => {
       lastCompletedAt: null,
       createdAt: serverTimestamp()
     });
-
     addActivityForm.reset();
   } catch (error) {
     console.error(error);
@@ -350,7 +322,6 @@ async function handleTickClick(btn) {
   const id = btn.dataset.id;
   const ref = doc(db, "users", currentUser.uid, "activities", id);
   const snap = await getDoc(ref);
-
   if (!snap.exists()) return;
 
   const data = snap.data();
@@ -373,11 +344,9 @@ async function handleSelectActivityClick(btn) {
   const id = btn.dataset.id;
   const ref = doc(db, "users", currentUser.uid, "activities", id);
   const snap = await getDoc(ref);
-
   if (!snap.exists()) return;
 
   const data = snap.data();
-
   selectActivity({
     id,
     name: data.name,
@@ -416,7 +385,6 @@ function autoResetDailyTicks() {
     ref,
     async (snapshot) => {
       const todayStr = new Date().toDateString();
-
       const promises = [];
 
       snapshot.forEach((docSnap) => {
@@ -450,8 +418,11 @@ function autoResetDailyTicks() {
 }
 
 /* ============================================================
-   PART 9 — TIMER + AUTO LOG FOCUS
+   PART 9 — TIMER + AUTO LOG FOCUS + PLAY AUDIO DARI AWAL
 ============================================================ */
+
+// audio global untuk fokus
+let currentFocusAudio = null;
 
 function selectActivity(activity) {
   currentActivity = activity;
@@ -459,7 +430,6 @@ function selectActivity(activity) {
 
   selectedActivityLabel.textContent = `Aktiviti: ${activity.name} (${activity.minutes} min)`;
   updateTimerDisplay();
-
   startTimerBtn.disabled = false;
 }
 
@@ -472,10 +442,14 @@ function updateTimerDisplay() {
 startTimerBtn.addEventListener("click", () => {
   if (!currentActivity || !currentUser) return;
 
+  // hentikan timer lama jika ada
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
   }
+
+  // mula main audio fokus sebaik user tekan Start
+  playFocusAudioForMinutes(currentActivity.minutes || 0);
 
   timerInterval = setInterval(async () => {
     remainingSeconds--;
@@ -490,10 +464,15 @@ startTimerBtn.addEventListener("click", () => {
   }, 1000);
 });
 
+/* ============================================================
+   PART 10 — FOCUS LOG + SUMMARY + WEEKLY ANALYTICS
+============================================================ */
+
 async function onTimerComplete() {
   if (!currentActivity || !currentUser) return;
 
-  playSelectedSound();
+  // ✅ Jangan main bunyi di sini — bunyi sudah dimainkan dari awal
+  // (fail focusXmin.mp3 mengandungi silent + alarm)
 
   try {
     await addDoc(collection(db, "users", currentUser.uid, "focusLog"), {
@@ -508,10 +487,6 @@ async function onTimerComplete() {
     showErrorToast("Gagal simpan log fokus.");
   }
 }
-
-/* ============================================================
-   PART 10 — FOCUS LOG + SUMMARY + WEEKLY ANALYTICS
-============================================================ */
 
 function listenToFocusLog() {
   if (!currentUser) return;
@@ -569,7 +544,7 @@ function renderLogSummary(logs) {
 function updateWeeklyAnalytics(logs) {
   const now = new Date();
 
-  const totals = [0, 0, 0, 0, 0, 0, 0]; // 7 hari
+  const totals = [0, 0, 0, 0, 0, 0, 0];
   const labels = getLast7DaysLabels(now);
 
   logs.forEach((log) => {
@@ -604,7 +579,6 @@ function getLast7DaysLabels(baseDate) {
 
 function renderWeeklyStats(labels, totals) {
   weeklyStatsList.innerHTML = "";
-
   for (let i = 0; i < labels.length; i++) {
     const li = document.createElement("li");
     li.textContent = `${labels[i]}: ${totals[i]} minit`;
@@ -645,64 +619,56 @@ function renderWeeklyChart(labels, totals) {
 }
 
 /* ============================================================
-   PART 11 — SOUND SETTINGS
+   PART 11 — SISTEM BUNYI focusXmin.mp3
 ============================================================ */
 
-const soundFiles = {
-  beep: new Audio("sounds/beep.mp3"),
-  gong: new Audio("sounds/gong.mp3"),
-  nature: new Audio("sounds/nature.mp3")
-};
+// Simpan audio semasa supaya boleh stop bila user start timer baru
+let currentFocusAudio = null;
 
-function playSelectedSound() {
-  if (!currentUser) return;
-  const key = `sound_${currentUser.uid}`;
-  const selected = localStorage.getItem(key) || "beep";
-  const audio = soundFiles[selected];
-  if (audio) {
-    audio.currentTime = 0;
-    audio.play();
+// Senarai durasi fail yang memang wujud dalam folder sounds/
+const AVAILABLE_FOCUS_DURATIONS = [1, 5, 10, 15, 20, 25, 30, 45];
+
+// Cari durasi paling hampir jika user guna durasi pelik (contoh: 12 minit)
+function getClosestFocusDuration(minutes) {
+  if (!minutes || minutes <= 0) return 1;
+
+  let closest = AVAILABLE_FOCUS_DURATIONS[0];
+  let diffMin = Math.abs(minutes - closest);
+
+  for (let i = 1; i < AVAILABLE_FOCUS_DURATIONS.length; i++) {
+    const d = Math.abs(minutes - AVAILABLE_FOCUS_DURATIONS[i]);
+    if (d < diffMin) {
+      diffMin = d;
+      closest = AVAILABLE_FOCUS_DURATIONS[i];
+    }
   }
+  return closest;
 }
 
-saveSoundBtn.addEventListener("click", async () => {
-  if (!currentUser) return;
+// Mula mainkan audio fokus berdasarkan minit aktiviti
+// Audio ini mengandungi "silent X minit + 10 minit alarm" dalam satu file
+function playFocusAudioForMinutes(minutes) {
+  const nearest = getClosestFocusDuration(minutes);
+  const filePath = `sounds/focus${nearest}min.mp3`;
 
-  const selected = soundSelect.value;
-  const key = `sound_${currentUser.uid}`;
-
-  localStorage.setItem(key, selected);
-
-  try {
-    await updateDoc(doc(db, "users", currentUser.uid), {
-      preferredSound: selected
-    });
-    alert("Pilihan bunyi disimpan.");
-  } catch (error) {
-    console.error(error);
-    showErrorToast("Gagal simpan pilihan bunyi.");
-  }
-});
-
-async function loadUserSoundPreference() {
-  if (!currentUser) return;
-
-  const key = `sound_${currentUser.uid}`;
-  let selected = localStorage.getItem(key) || "beep";
-
-  try {
-    const snap = await getDoc(doc(db, "users", currentUser.uid));
-    if (snap.exists() && snap.data().preferredSound) {
-      selected = snap.data().preferredSound;
-      localStorage.setItem(key, selected);
+  // Hentikan audio lama jika ada
+  if (currentFocusAudio) {
+    try {
+      currentFocusAudio.pause();
+      currentFocusAudio.currentTime = 0;
+    } catch (e) {
+      console.warn("Gagal reset audio lama:", e);
     }
-  } catch (error) {
-    console.error(error);
   }
 
-  if (soundSelect) {
-    soundSelect.value = selected;
-  }
+  // Buat audio baru
+  currentFocusAudio = new Audio(filePath);
+  currentFocusAudio.loop = false;
+
+  // Mainkan dari awal — silent dulu, kemudian alarm (ikut file yang ad buat)
+  currentFocusAudio.play().catch((err) => {
+    console.warn("Audio fokus gagal dimainkan (mungkin block autoplay):", err);
+  });
 }
 
 /* ============================================================
